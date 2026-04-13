@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주성치와 함께하는 디자인 여행</title>
+<link rel="icon" type="image/png" href="assets/dssync.png">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css">
+<style>
+  :root {
+    --bg-base: #080a0d;
+    --bg-surface: #0d0f12;
+    --bg-elevated: #131518;
+    --bg-hover: #18191d;
+    --border: #212226;
+    --border-subtle: #131518;
+    --border-gold: rgba(180,140,60,0.35);
+    --text-primary: #c8cdd4;
+    --text-secondary: #60646b;
+    --text-muted: #303236;
+    --gold: #c9a84c;
+    --gold-dim: rgba(201,168,76,0.12);
+    --gold-bright: #f0c060;
+    --accent-blue: #3b82f6;
+    --accent-blue-dim: rgba(59,130,246,0.14);
+    --accent-green: #3ba55d;
+    --accent-green-dim: rgba(59,165,93,0.13);
+    --accent-amber: #c96b1a;
+    --accent-amber-dim: rgba(201,107,26,0.14);
+    --accent-yellow: #c9a020;
+    --accent-yellow-dim: rgba(201,160,32,0.14);
+    --accent-red: #c03737;
+    --accent-red-dim: rgba(192,55,55,0.14);
+    --accent-purple: #bf3f8c;
+    --accent-purple-dim: rgba(191,63,140,0.14);
+    --accent-cyan: #3aa8c4;
+    --accent-cyan-dim: rgba(58,168,196,0.13);
+    --accent-violet: #7c4dff;
+    --accent-violet-dim: rgba(124,77,255,0.14);
+    --sidebar-w: 256px;
+    --globalbar-h: 50px;
+    --radius-sm: 3px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.6);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.75);
+    --shadow-gold: 0 0 12px rgba(201,168,76,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 15px;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  /* ── Subtle bg texture ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 15% 50%, rgba(138,111,212,0.04) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 85% 20%, rgba(74,144,217,0.04) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 30% at 50% 100%, rgba(201,168,76,0.03) 0%, transparent 70%);
+  }
+
+  /* ── Layout ─── */
+  #app { display: flex; height: 100vh; overflow: hidden; position: relative; z-index: 1; }
+
+
+  /* ── Sidebar ─── */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    transition: width 0.22s ease, min-width 0.22s ease;
+  }
+  #sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    border-right-color: transparent;
+  }
+  .sidebar-banner {
+    flex-shrink: 0;
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-banner img {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+  }
+  .sidebar-section-label {
+    padding: 12px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sidebar-section-label::before, .sidebar-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .sidebar-section-label::before, .sidebar-section-label::after { display: none; }
+  .project-list { flex: 1; overflow-y: auto; padding: 6px 0 10px; }
+  .project-item {
+    padding: 8px 10px;
+    margin: 2px 8px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .project-item:hover { background: var(--bg-hover); }
+  .project-item.active {
+    background: var(--bg-hover);
+    border-color: var(--border);
+  }
+  .project-item-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .project-item.active .project-item-name { color: var(--text-primary); }
+  .project-item-meta { display: flex; align-items: center; gap: 5px; }
+
+  /* ── Badges ─── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
+    min-width: 52px;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .badge-green  { background: var(--accent-green-dim);  color: var(--accent-green);  border: 1px solid rgba(59,165,93,0.25);   }
+  .badge-amber  { background: var(--accent-amber-dim);  color: var(--accent-amber);  border: 1px solid rgba(201,107,26,0.25);  }
+  .badge-yellow { background: var(--accent-yellow-dim); color: var(--accent-yellow); border: 1px solid rgba(201,160,32,0.25);  }
+  .badge-blue   { background: var(--accent-blue-dim);   color: var(--accent-blue);   border: 1px solid rgba(59,130,246,0.25);  }
+  .badge-red    { background: var(--accent-red-dim);    color: var(--accent-red);    border: 1px solid rgba(192,55,55,0.25);   }
+  .badge-purple { background: var(--accent-purple-dim); color: var(--accent-purple); border: 1px solid rgba(191,63,140,0.25);  }
+  .badge-cyan   { background: var(--accent-cyan-dim);   color: var(--accent-cyan);   border: 1px solid rgba(58,168,196,0.25);  }
+  .badge-violet { background: var(--accent-violet-dim); color: var(--accent-violet); border: 1px solid rgba(124,77,255,0.25);  }
+  .log-agent .badge { width: 90px; justify-content: center; }
+  .badge-gray   { background: var(--bg-elevated);       color: var(--text-muted);    border: 1px solid var(--border);          }
+  .badge-gold   { background: var(--gold-dim);          color: var(--gold);          border: 1px solid var(--border-gold);     }
+
+  /* ── Main ─── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  /* ── Global Bar ─── */
+  #globalbar {
+    height: var(--globalbar-h);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 14px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .globalbar-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .globalbar-right { display: flex; align-items: center; gap: 8px; }
+  .conn-pill {
+    display: flex; align-items: center; gap: 5px;
+    padding: 3px 9px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  }
+  .conn-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .conn-pill.live   { color: var(--accent-green); border-color: rgba(59,165,93,0.3); }
+  .conn-pill.live   .conn-dot { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+  .conn-pill.offline { color: var(--text-muted); }
+  .conn-pill.offline .conn-dot { background: var(--text-muted); }
+  .globalbar-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: -0.01em;
+  }
+  .ds-sync-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .ds-sync-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .ds-sync-time { font-size: 12px; color: var(--text-muted); }
+  .icon-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    font-size: 16px;
+    line-height: 1;
+  }
+  #sidebar-toggle { padding: 0; }
+  .icon-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); color: var(--text-primary); }
+
+  /* ── Project Header ─── */
+  #project-header {
+    padding: 16px 22px 0;
+    flex-shrink: 0;
+  }
+  .project-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .project-header-left { flex: 1; min-width: 0; }
+  .project-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+  }
+  .project-quest-mark {
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0.7;
+    margin-right: -4px;
+  }
+  .project-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .project-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+  }
+  .project-meta-item { display: flex; align-items: center; gap: 4px; }
+  .project-meta-item .label { color: var(--text-muted); }
+  .project-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .btn {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .btn:hover { background: var(--bg-hover); border-color: var(--text-muted); color: var(--text-primary); }
+  .btn-gold {
+    background: var(--gold-dim);
+    border-color: var(--border-gold);
+    color: var(--gold-bright);
+  }
+  .btn-gold:hover { background: rgba(201,168,76,0.2); color: var(--gold-bright); }
+
+  /* ── Content ─── */
+  #content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px 22px 12px;
+    gap: 8px;
+  }
+
+  /* ── Kanban ─── */
+  #kanban {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: 0;
+    padding-bottom: 2px;
+  }
+
+  .kanban-col {
+    flex: 1;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    position: relative;
+  }
+  /* top accent line per column */
+  .kanban-col::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--col-accent, var(--border));
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+
+  .kanban-col-header {
+    padding: 11px 13px 9px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    padding-top: 13px;
+  }
+  .kanban-col-title { display: flex; align-items: center; gap: 7px; }
+  .col-class-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    image-rendering: pixelated;
+  }
+  .kanban-col-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: -0.01em;
+  }
+  .kanban-col-duration {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'Pretendard', sans-serif;
+  }
+  .kanban-col-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Cards ─── */
+  .kanban-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 11px;
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.1s, box-shadow 0.12s;
+    position: relative;
+    word-break: break-all;
+    overflow-wrap: break-word;
+  }
+  .kanban-card:hover { border-color: var(--text-muted); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+  .kanban-card.status-idle     { opacity: 0.6; }
+
+  .card-status-row { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+  .card-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-bottom: 8px;
+  }
+  .card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-family: 'Pretendard', sans-serif;
+  }
+  .card-time   { color: var(--text-muted); }
+  .card-duration { font-weight: 500; color: var(--text-secondary); }
+
+  /* attempt cards */
+  .kanban-card.attempt-prev {
+    opacity: 0.5;
+    border-style: dashed;
+  }
+  .attempt-num {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  /* builder column */
+  .builder-figma-preview {
+    margin-top: 8px;
+    padding: 8px 9px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    position: relative;
+  }
+  .builder-figma-preview::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px;
+    width: 8px; height: 8px;
+    border-top: 1px solid var(--accent-purple);
+    border-left: 1px solid var(--accent-purple);
+    border-radius: 2px 0 0 0;
+  }
+  .builder-figma-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 5px;
+  }
+  .builder-figma-detail {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    font-family: 'Pretendard', sans-serif;
+    line-height: 1.65;
+  }
+
+  /* ── Log Area ─── */
+  #log-area {
+    height: 320px;
+    min-height: 220px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .log-header {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .log-header-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Pretendard', sans-serif;
+    letter-spacing: 0.04em;
+  }
+  .log-count {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    font-family: 'Pretendard', sans-serif;
+  }
+  .log-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px 0;
+    font-family: 'Pretendard', sans-serif;
+    font-size: 13px;
+  }
+  .log-line {
+    display: grid;
+    grid-template-columns: 62px 100px 1fr;
+    align-items: baseline;
+    gap: 0 8px;
+    padding: 3px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+    line-height: 1.55;
+  }
+  .log-line:hover { background: var(--bg-hover); }
+  .log-ts    { color: var(--text-muted); }
+  .log-agent { overflow: hidden; }
+  .log-msg   { color: var(--text-secondary); min-width: 0; }
+  .log-line.log-rollback .log-msg { color: var(--accent-amber); }
+  .log-line.log-complete .log-msg { color: var(--accent-green); }
+  .log-line.log-error    .log-msg { color: var(--accent-red);   }
+
+
+  /* ── Modals ─── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    width: 560px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(10px) scale(0.97);
+    transition: transform 0.18s;
+    position: relative;
+  }
+  .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .modal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .modal-agent-icon {
+    width: 48px;
+    height: 48px;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+  }
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .modal-close {
+    width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+  .modal-section { margin-bottom: 20px; }
+  .modal-section:last-child { margin-bottom: 0; }
+  .modal-section-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+  .modal-kv { display: grid; grid-template-columns: 130px 1fr; gap: 7px 12px; align-items: center; }
+  .modal-kv .badge { width: 110px; justify-content: center; }
+  .modal-kv-key { font-size: 14px; color: var(--text-secondary); }
+  .modal-kv-val {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-family: 'Pretendard', sans-serif;
+    word-break: break-all;
+  }
+  .modal-log-list { display: flex; flex-direction: column; }
+  .modal-log-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0 20px;
+    font-size: 13px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 12.5px;
+  }
+  .modal-log-item:last-child { border-bottom: none; }
+  .modal-log-ts   { color: var(--text-muted); width: 68px; flex-shrink: 0; }
+  .modal-log-text { color: var(--text-secondary); min-width: 0; }
+  .modal-log-item.log-rollback .modal-log-text { color: var(--accent-amber); }
+  .modal-log-item.log-complete .modal-log-text { color: var(--accent-green); }
+  .modal-log-item.log-error    .modal-log-text { color: var(--accent-red);   }
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+    border: none;
+  }
+
+  /* Builder modal */
+  #modal-builder .modal { width: 640px; }
+  .figma-result-box {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .figma-result-title {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-purple);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.03em;
+  }
+  .figma-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .figma-result-cell {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 11px;
+  }
+  .frc-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 4px;
+  }
+  .frc-value { font-size: 13px; color: var(--text-primary); font-family: 'Pretendard', sans-serif; }
+
+  /* Overview modal */
+  #modal-overview .modal { width: 600px; }
+  .overview-stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+  .overview-stat {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    text-align: center;
+  }
+  .overview-stat-val {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Pretendard', sans-serif;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .overview-stat-label { font-size: 11px; color: var(--text-muted); }
+
+  /* ── Image Modal ─── */
+  #modal-image .modal {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    width: auto;
+    max-width: calc(100vw - 60px);
+    max-height: calc(100vh - 60px);
+  }
+  #modal-image img {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 60px);
+    border-radius: var(--radius-md);
+    image-rendering: pixelated;
+    cursor: pointer;
+  }
+
+  /* ── Scrollbar ─── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-gold); }
+
+  /* ── Util ─── */
+  .text-green  { color: var(--accent-green);  }
+  .text-amber  { color: var(--accent-amber);  }
+  .text-blue   { color: var(--accent-blue);   }
+  .text-purple { color: var(--accent-purple); }
+  .text-muted  { color: var(--text-muted);    }
+  .text-red    { color: var(--accent-red);    }
+  .text-gold   { color: var(--gold);          }
+  .mono { font-family: 'Pretendard', sans-serif; }
+  .empty-col {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 20px;
+    text-align: center;
+    font-style: italic;
+    opacity: 0.6;
+  }
+
+  /* running pulse */
+  .status-running .card-status-row::after {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    margin-left: 4px;
+    vertical-align: middle;
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── Splash ─── */
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: #0a0c10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    transition: opacity 0.6s ease;
+  }
+  #splash.fade-out { opacity: 0; pointer-events: none; }
+  #splash-title {
+    font-family: 'Pretendard', sans-serif;
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    color: #fff;
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 40px rgba(201,168,76,0.6), 0 2px 16px rgba(0,0,0,0.6);
+  }
+  #splash img {
+    width: min(400px, 80vw);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(201,168,76,0.2);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-banner">
+      <img src="assets/keyvisual.png" alt="주성치와 함께하는 디자인 여행" onclick="openModal('modal-image')">
+    </div>
+    <div class="sidebar-section-label">퀘스트</div>
+    <div class="project-list" id="project-list"></div>
+  </aside>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- Global Bar -->
+    <div id="globalbar">
+      <div class="globalbar-left">
+        <button class="icon-btn" onclick="toggleSidebar()" id="sidebar-toggle" title="사이드바 토글">
+          <svg id="sidebar-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <span class="globalbar-title">주성치와 함께하는 디자인 여행</span>
+      </div>
+      <div class="globalbar-right">
+        <div class="ds-sync-pill" onclick="openDsSyncModal()" style="cursor:pointer">
+          <img src="assets/dssync.png" alt="ds-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
+          <span class="ds-sync-label">무적풍화륜</span>
+          <span class="ds-sync-time" id="ds-sync-time"></span>
+        </div>
+        <div class="conn-pill offline" id="conn-pill">
+          <span class="conn-dot"></span>
+          <span id="conn-label">오프라인</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Project Header -->
+    <div id="project-header">
+      <div class="project-header-row">
+        <div class="project-header-left">
+          <div class="project-name-row" id="project-name-row"></div>
+          <div class="project-meta-row" id="project-meta-row"></div>
+        </div>
+        <div class="project-header-actions">
+          <button class="btn" onclick="openModal('modal-overview')">개요 보기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content">
+      <div id="kanban"></div>
+      <div id="log-area">
+        <div class="log-header">
+          <div class="log-header-title">
+            실행 로그
+            <span class="log-count" id="log-count"></span>
+          </div>
+          <button class="btn" onclick="openModal('modal-log')">전체 보기</button>
+        </div>
+        <div class="log-body" id="log-body"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Splash -->
+<div id="splash">
+  <img src="assets/keyvisual.png" alt="">
+  <div id="splash-title">주성치와 함께하는<br>디자인 여행</div>
+</div>
+
+<!-- Modal: Agent Detail -->
+<div class="modal-backdrop" id="modal-agent">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-agent-title">—</div>
+      <button class="modal-close" onclick="closeModal('modal-agent')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-agent-body"></div>
+  </div>
+</div>
+
+<!-- Modal: Log Detail -->
+<div class="modal-backdrop" id="modal-log">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">실행 로그 전체</div>
+      <button class="modal-close" onclick="closeModal('modal-log')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-log-body"></div>
+  </div>
+</div>
+
+<!-- Modal: Builder Result -->
+<div class="modal-backdrop" id="modal-builder">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title"><img class="modal-agent-icon" src="assets/builder.png" alt="figma-builder"> figma-builder</div>
+      <button class="modal-close" onclick="closeModal('modal-builder')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-builder-body"></div>
+  </div>
+</div>
+
+<!-- Modal: Project Overview -->
+<div class="modal-backdrop" id="modal-overview">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-overview-title">퀘스트 개요</div>
+      <button class="modal-close" onclick="closeModal('modal-overview')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-overview-body"></div>
+  </div>
+</div>
+
+<!-- Modal: DS Sync History -->
+<div class="modal-backdrop" id="modal-dssync">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <img src="assets/dssync.png" alt="ds-sync" style="width:22px;height:22px;image-rendering:pixelated;flex-shrink:0;">
+        무적풍화륜 실행 내역
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-dssync')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-dssync-body"></div>
+  </div>
+</div>
+
+<!-- Modal: Image Viewer -->
+<div class="modal-backdrop" id="modal-image">
+  <img src="assets/keyvisual.png" alt="키비주얼" onclick="closeModal('modal-image')">
+</div>
+
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+let GLOBAL = { dsSyncLastAt: '—' };
+let PROJECTS = [];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let activeProjectId = null;
+let activeModal = null;
+
+// ── Sidebar Toggle ────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const arrow = document.getElementById('sidebar-arrow');
+  sidebar.classList.toggle('collapsed');
+  const collapsed = sidebar.classList.contains('collapsed');
+  arrow.style.transform = collapsed ? 'rotate(180deg)' : '';
+  arrow.style.transition = 'transform 0.22s ease';
+}
+
+// ── Column config ─────────────────────────────────────────────────────────────
+const COL_CONFIG = {
+  'planner':     { label: 'planner',         icon: 'assets/planner.png',   accent: '#3b82f6' },
+  'ui-designer': { label: 'ui-designer',     icon: 'assets/designer.png',  accent: '#3ba55d' },
+  'validator':   { label: 'validator',       icon: 'assets/validator.png', accent: '#c9a020' },
+  'ux-improver': { label: 'ux-improver',     icon: 'assets/improver.png',  accent: '#3aa8c4' },
+  'builder':     { label: 'figma-builder',   icon: 'assets/builder.png',   accent: '#bf3f8c' },
+  'reviewer':    { label: 'figma-reviewer',  icon: 'assets/reviewer.png',  accent: '#7c4dff' },
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function statusText(status) {
+  const map = {
+    done:        ['var(--accent-green)',  '완료'],
+    running:     ['var(--accent-blue)',   '실행 중'],
+    idle:        ['var(--text-muted)',    '대기'],
+    rollback:    ['var(--accent-amber)',  '롤백'],
+    error:       ['var(--accent-red)',    '오류'],
+    completed:   ['var(--accent-green)',  '완료'],
+    in_progress: ['var(--accent-blue)',   '진행 중'],
+  };
+  const [color, label] = map[status] || ['var(--text-muted)', status];
+  return `<span style="color:${color};font-size:11px;font-weight:600;letter-spacing:0.03em">${label}</span>`;
+}
+
+function getStatusBadge(status) {
+  const map = {
+    done:        ['badge-green',  '완료'],
+    running:     ['badge-blue',   '실행 중'],
+    idle:        ['badge-gray',   '대기'],
+    rollback:    ['badge-amber',  '롤백'],
+    completed:   ['badge-green',  '완료'],
+    in_progress: ['badge-blue',   '진행 중'],
+    draft:       ['badge-gray',   '준비'],
+  };
+  const [cls, label] = map[status] || ['badge-gray', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function getLogClass(type) {
+  const m = { rollback:'log-rollback', complete:'log-complete', start:'log-start', error:'log-error', figma:'log-figma' };
+  return m[type] || '';
+}
+
+function getAgentBadge(agent) {
+  const m = { planner:'badge-blue', 'ui-designer':'badge-green', validator:'badge-yellow', 'ux-improver':'badge-cyan', builder:'badge-purple', reviewer:'badge-violet', director:'badge-gray' };
+  return m[agent] || 'badge-gray';
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal(id) {
+  if (activeModal && activeModal !== id) closeModal(activeModal);
+  if (id === 'modal-log')      renderLogModal();
+  if (id === 'modal-overview') renderOverviewModal();
+  document.getElementById(id).classList.add('open');
+  activeModal = id;
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (activeModal === id) activeModal = null;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && activeModal) closeModal(activeModal); });
+['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-image'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
+});
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  if (PROJECTS.length === 0) {
+    document.getElementById('project-list').innerHTML =
+      `<div style="padding:16px;font-size:12px;color:var(--text-muted);text-align:center;line-height:1.7">아직 작업 없음<br>첫 지시를 내려보세요</div>`;
+    return;
+  }
+  document.getElementById('project-list').innerHTML = PROJECTS.map(p => `
+    <div class="project-item ${p.id === activeProjectId ? 'active' : ''}" onclick="selectProject('${p.id}')">
+      <div class="project-item-name">${p.name}</div>
+      <div class="project-item-meta">
+        ${getStatusBadge(p.status)}
+        ${p.rollback ? '<span class="badge badge-amber">롤백</span>' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+function selectProject(id) { activeProjectId = id; renderSidebar(); renderProject(); }
+
+// ── Data Loading ──────────────────────────────────────────────────────────────
+let DS_SYNC_HISTORY = [];
+
+async function loadData() {
+  try {
+    const bust = '?t=' + Date.now();
+
+    const [sessionRes, dashRes] = await Promise.all([
+      fetch('session.json' + bust),
+      fetch('dashboard.jsonl' + bust),
+    ]);
+
+    // session.json — 진행 중 세션
+    const sessionData = sessionRes.ok ? await sessionRes.json() : null;
+    const liveSession = sessionData && sessionData.id ? sessionData : null;
+
+    // dashboard.jsonl — 항목 파싱 후 ds-sync / 프로젝트 분리
+    const dashText = dashRes.ok ? await dashRes.text() : '';
+    const allEntries = dashText.trim()
+      ? dashText.trim().split('\n').filter(l => l.trim()).map(l => JSON.parse(l))
+      : [];
+
+    DS_SYNC_HISTORY = allEntries.filter(e => e.type === 'ds-sync').reverse();
+    const history   = allEntries.filter(e => e.type !== 'ds-sync').reverse();
+
+    PROJECTS = [...(liveSession ? [liveSession] : []), ...history];
+
+    // 무적풍화륜 최근 시각
+    if (DS_SYNC_HISTORY.length > 0) GLOBAL.dsSyncLastAt = DS_SYNC_HISTORY[0].at;
+
+    // 활성 프로젝트 초기화
+    if (PROJECTS.length > 0 && !PROJECTS.find(p => p.id === activeProjectId)) {
+      activeProjectId = PROJECTS[0].id;
+    }
+
+    setConnStatus(true);
+    renderGlobalBar();
+    renderSidebar();
+    renderProject();
+  } catch(e) {
+    setConnStatus(false);
+  }
+}
+
+function setConnStatus(live) {
+  const pill = document.getElementById('conn-pill');
+  const label = document.getElementById('conn-label');
+  if (!pill) return;
+  pill.className = 'conn-pill ' + (live ? 'live' : 'offline');
+  label.textContent = live ? '실시간' : '오프라인';
+}
+
+// ── Global Bar ────────────────────────────────────────────────────────────────
+function renderGlobalBar() {
+  document.getElementById('ds-sync-time').textContent = GLOBAL.dsSyncLastAt;
+}
+
+// ── DS Sync Modal ─────────────────────────────────────────────────────────────
+function openDsSyncModal() {
+  const body = document.getElementById('modal-dssync-body');
+  if (DS_SYNC_HISTORY.length === 0) {
+    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">실행 내역 없음</div>`;
+  } else {
+    body.innerHTML = `
+      <div class="modal-log-list">
+        ${DS_SYNC_HISTORY.map((e, i) => `
+          <div class="modal-log-item" style="${i === 0 ? 'color:var(--text-primary)' : ''}">
+            <span class="modal-log-ts">${e.at}</span>
+            <span class="modal-log-text">${e.summary || '디자인 시스템 동기화 완료'}</span>
+          </div>`).join('')}
+      </div>`;
+  }
+  openModal('modal-dssync');
+}
+
+// ── Project Header ────────────────────────────────────────────────────────────
+function renderProjectHeader(p) {
+  document.getElementById('project-name-row').innerHTML = `
+    <span class="project-name">${p.name}</span>
+    ${getStatusBadge(p.status)}
+    ${p.rollback ? '<span class="badge badge-amber">롤백</span>' : ''}
+    <span class="badge ${p.mode === '생성 모드' ? 'badge-purple' : 'badge-blue'}">${p.mode === '생성 모드' ? '생성' : '설계'}</span>
+  `;
+  const parts = [];
+  if (p.startedAt)   parts.push(`<span class="project-meta-item"><span class="label">시작</span> ${p.startedAt}</span>`);
+  if (p.completedAt) parts.push(`<span class="project-meta-item"><span class="label">완료</span> ${p.completedAt}</span>`);
+  if (p.duration)    parts.push(`<span class="project-meta-item"><span class="label">소요</span> <span class="mono">${p.duration}</span></span>`);
+  document.getElementById('project-meta-row').innerHTML =
+    parts.join('<span style="color:var(--border);margin:0 12px">·</span>');
+}
+
+// ── Kanban ────────────────────────────────────────────────────────────────────
+function renderKanban(p) {
+  const agentMap = {};
+  p.agents.forEach(a => { agentMap[a.id] = a; });
+
+  document.getElementById('kanban').innerHTML = Object.keys(COL_CONFIG).map(colId => {
+    const cfg = COL_CONFIG[colId];
+    const a = agentMap[colId];
+    const duration = a ? (a.duration || (a.status === 'running' ? '...' : '—')) : '—';
+
+    let cardHtml = '';
+    if (!a) {
+      cardHtml = `<div class="empty-col">이 퀘스트에서 사용 안 함</div>`;
+    } else if (a.status === 'idle') {
+      cardHtml = `
+        <div class="kanban-card status-idle" onclick="openAgentModal('${p.id}','${a.id}')">
+          <div class="card-status-row">${statusText(a.status)}</div>
+          <div class="card-desc" style="font-style:italic;opacity:0.5">소환 대기 중...</div>
+        </div>`;
+    } else {
+      const figmaBlock = (colId === 'builder' && a.figma) ? `
+        <div class="builder-figma-preview">
+          <div class="builder-figma-label">뽀로뽀로미</div>
+          <div class="builder-figma-detail">
+            ${a.figma.file} / ${a.figma.page}<br>
+            frame: ${a.figma.frame}<br>
+            node: <span style="color:var(--accent-purple)">${a.figma.nodeId}</span>
+          </div>
+        </div>` : '';
+
+      const hasAttempts = Array.isArray(a.history) && a.history.length > 0 && typeof a.history[0] === 'object';
+      const prevAttempts = hasAttempts ? a.history.slice(0, -1) : [];
+      const attemptCards = prevAttempts.map(h => `
+        <div class="kanban-card status-${h.status} attempt-prev" onclick="openAgentModal('${p.id}','${a.id}')">
+          <div class="card-status-row">
+            ${statusText(h.status)}
+            <span class="attempt-num">${h.attempt}회차</span>
+          </div>
+          <div class="card-desc">${h.summary}</div>
+          <div class="card-meta">
+            <span class="card-time">${h.startedAt || ''}</span>
+            <span class="card-duration">${h.duration || ''}</span>
+          </div>
+        </div>`).join('');
+
+      cardHtml = attemptCards + `
+        <div class="kanban-card status-${a.status}" onclick="openAgentModal('${p.id}','${a.id}')">
+          <div class="card-status-row">
+            ${statusText(a.status)}
+            ${hasAttempts ? `<span class="attempt-num">${a.history.length}회차</span>` : ''}
+            ${a.notes ? `<span style="color:var(--accent-amber);font-size:11px;margin-left:auto" title="${a.notes.replace(/"/g,'&quot;')}">⚠</span>` : ''}
+          </div>
+          <div class="card-desc">${a.summary || '—'}</div>
+          ${figmaBlock}
+          <div class="card-meta">
+            <span class="card-time">${a.startedAt || ''}</span>
+            <span class="card-duration">${a.duration || (a.status === 'running' ? '실행 중' : '')}</span>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="kanban-col ${colId === 'builder' ? 'col-builder' : ''}" style="--col-accent:${cfg.accent}">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">
+            <img class="col-class-icon" src="${cfg.icon}" alt="${cfg.label}">
+            <span class="kanban-col-name">${cfg.label}</span>
+          </div>
+          <span class="kanban-col-duration">${duration}</span>
+        </div>
+        <div class="kanban-col-body">${cardHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+function renderLogs(p) {
+  document.getElementById('log-count').textContent = `${p.logs.length}`;
+  document.getElementById('log-body').innerHTML = p.logs.slice().reverse().map((l, ri) => {
+    const origIdx = p.logs.length - 1 - ri;
+    return `
+      <div class="log-line ${getLogClass(l.type)}" onclick="openLogDetailModal('${p.id}',${origIdx})">
+        <span class="log-ts">${l.ts}</span>
+        <span class="log-agent"><span class="badge ${getAgentBadge(l.agent)}">${l.agent}</span></span>
+        <span class="log-msg">${l.msg}</span>
+      </div>`;
+  }).join('');
+}
+
+// ── Render Project ────────────────────────────────────────────────────────────
+function renderProject() {
+  const p = PROJECTS.find(x => x.id === activeProjectId);
+  if (!p) { renderEmptyState(); return; }
+  renderProjectHeader(p);
+  renderKanban(p);
+  renderLogs(p);
+}
+
+function renderEmptyState() {
+  document.getElementById('project-name-row').innerHTML =
+    `<span class="project-name" style="color:var(--text-muted)">작업 없음</span>`;
+  document.getElementById('project-meta-row').innerHTML = '';
+
+  document.getElementById('kanban').innerHTML = Object.keys(COL_CONFIG).map(colId => {
+    const cfg = COL_CONFIG[colId];
+    return `
+      <div class="kanban-col ${colId === 'builder' ? 'col-builder' : ''}" style="--col-accent:${cfg.accent}">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">
+            <img class="col-class-icon" src="${cfg.icon}" alt="${cfg.label}">
+            <span class="kanban-col-name">${cfg.label}</span>
+          </div>
+          <span class="kanban-col-duration">—</span>
+        </div>
+        <div class="kanban-col-body">
+          <div class="empty-col" style="opacity:0.35">대기 중</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('log-count').textContent = '0';
+  document.getElementById('log-body').innerHTML =
+    `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">작업 기록이 없습니다</div>`;
+}
+
+// ── Agent Modal ───────────────────────────────────────────────────────────────
+function openAgentModal(projectId, agentId) {
+  const p = PROJECTS.find(x => x.id === projectId);
+  if (!p) return;
+  const a = p.agents.find(x => x.id === agentId);
+  if (!a) return;
+
+  if (agentId === 'builder' && a.figma) { renderBuilderModal(a); openModal('modal-builder'); return; }
+
+  const cfg = COL_CONFIG[agentId] || {};
+  document.getElementById('modal-agent-title').innerHTML = `
+    ${cfg.icon ? `<img class="modal-agent-icon" src="${cfg.icon}" alt="${a.name}">` : ''}
+    ${a.name}`;
+
+  const notesHtml = a.notes ? `
+    <div class="modal-section">
+      <div class="modal-section-title">비고</div>
+      <div style="font-size:13px;color:var(--accent-amber);line-height:1.65;font-family:'Pretendard',sans-serif;font-size:12px">${a.notes}</div>
+    </div>` : '';
+
+  document.getElementById('modal-agent-body').innerHTML = `
+    <div class="modal-section">
+      <div class="modal-kv">
+        <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(a.status)}</span>
+        <span class="modal-kv-key">시작</span><span class="modal-kv-val">${a.startedAt || '—'}</span>
+        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${a.duration || (a.status === 'running' ? '실행 중' : '—')}</span>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">요약</div>
+      <div style="font-size:14px;color:var(--text-secondary);line-height:1.7">${a.summary || '—'}</div>
+    </div>
+    ${a.output ? `
+    <div class="modal-section">
+      <div class="modal-section-title">출력</div>
+      <div style="font-size:13px;color:var(--text-primary);line-height:1.7;font-family:'Pretendard',sans-serif">${a.output}</div>
+    </div>` : ''}
+    ${notesHtml}
+  `;
+  openModal('modal-agent');
+}
+
+// ── Builder Modal ─────────────────────────────────────────────────────────────
+function renderBuilderModal(a) {
+  const f = a.figma;
+  document.getElementById('modal-builder-body').innerHTML = `
+    <div class="modal-section">
+      <div class="modal-kv">
+        <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(a.status)}</span>
+        <span class="modal-kv-key">시작</span><span class="modal-kv-val">${a.startedAt || '—'}</span>
+        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${a.duration || '—'}</span>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="figma-result-box">
+      <div class="figma-result-title">뽀로뽀로미 소환 기록</div>
+      <div class="figma-result-grid">
+        <div class="figma-result-cell"><div class="frc-label">파일</div><div class="frc-value">${f.file}</div></div>
+        <div class="figma-result-cell"><div class="frc-label">페이지</div><div class="frc-value">${f.page}</div></div>
+        <div class="figma-result-cell"><div class="frc-label">프레임</div><div class="frc-value">${f.frame}</div></div>
+        <div class="figma-result-cell"><div class="frc-label">노드 ID</div><div class="frc-value" style="color:var(--accent-purple)">${f.nodeId}</div></div>
+        <div class="figma-result-cell"><div class="frc-label">위치 (x, y)</div><div class="frc-value">${f.x}, ${f.y}</div></div>
+        <div class="figma-result-cell"><div class="frc-label">소환 화면 수</div><div class="frc-value">${f.screens}개</div></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-title">요약</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${a.summary}</div>
+    </div>
+  `;
+}
+
+// ── Log Detail Modal ──────────────────────────────────────────────────────────
+function openLogDetailModal(projectId, logIndex) {
+  const p = PROJECTS.find(x => x.id === projectId);
+  if (!p) return;
+  const log = p.logs[logIndex];
+  const typeLabel = { rollback:'롤백', complete:'완료', start:'시작', error:'오류', figma:'Figma' };
+
+  document.getElementById('modal-log-body').innerHTML = `
+    <div class="modal-section">
+      <div class="modal-kv">
+        <span class="modal-kv-key">시간</span><span class="modal-kv-val">${log.ts}</span>
+        <span class="modal-kv-key">에이전트</span><span class="modal-kv-val"><span class="badge ${getAgentBadge(log.agent)}">${log.agent}</span></span>
+        <span class="modal-kv-key">유형</span><span class="modal-kv-val">${typeLabel[log.type] || log.type}</span>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">메시지</div>
+      <div style="font-size:13px;line-height:1.7;color:var(--text-primary);font-family:'Pretendard',sans-serif;font-size:12px">${log.msg}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">전체 기록 — ${p.name}</div>
+      <div class="modal-log-list">
+        ${p.logs.map((l, i) => `
+          <div class="modal-log-item ${getLogClass(l.type)}" style="${i === logIndex ? 'background:var(--bg-elevated);padding-left:6px;border-radius:3px' : ''}">
+            <span class="modal-log-ts">${l.ts}</span>
+            <span class="modal-log-text">[${l.agent}] ${l.msg}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+  openModal('modal-log');
+}
+
+function renderLogModal() {
+  const p = PROJECTS.find(x => x.id === activeProjectId);
+  if (!p) return;
+  document.getElementById('modal-log-body').innerHTML = `
+    <div class="modal-log-list">
+      ${p.logs.map(l => `
+        <div class="modal-log-item ${getLogClass(l.type)}">
+          <span class="modal-log-ts">${l.ts}</span>
+          <span class="modal-log-text">[${l.agent}] ${l.msg}</span>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+// ── Overview Modal ────────────────────────────────────────────────────────────
+function renderOverviewModal() {
+  const p = PROJECTS.find(x => x.id === activeProjectId);
+  if (!p) return;
+  document.getElementById('modal-overview-title').textContent = p.name;
+  const doneCount     = p.agents.filter(a => a.status === 'done').length;
+  const rollbackCount = p.logs.filter(l => l.type === 'rollback').length;
+  const errorCount    = p.logs.filter(l => l.type === 'error').length;
+
+  document.getElementById('modal-overview-body').innerHTML = `
+    <div class="overview-stat-grid">
+      <div class="overview-stat">
+        <div class="overview-stat-val text-green">${doneCount}/${p.agents.length}</div>
+        <div class="overview-stat-label">에이전트 완료</div>
+      </div>
+      <div class="overview-stat">
+        <div class="overview-stat-val text-amber">${rollbackCount}</div>
+        <div class="overview-stat-label">롤백 횟수</div>
+      </div>
+      <div class="overview-stat">
+        <div class="overview-stat-val ${errorCount > 0 ? 'text-red' : 'text-muted'}">${errorCount}</div>
+        <div class="overview-stat-label">오류 발생</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="modal-section">
+      <div class="modal-kv">
+        <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(p.status)}</span>
+        <span class="modal-kv-key">모드</span><span class="modal-kv-val">${p.mode}</span>
+        <span class="modal-kv-key">시작</span><span class="modal-kv-val">${p.startedAt || '—'}</span>
+        <span class="modal-kv-key">완료</span><span class="modal-kv-val">${p.completedAt || '—'}</span>
+        <span class="modal-kv-key">총 소요</span><span class="modal-kv-val">${p.duration || '진행 중'}</span>
+        <span class="modal-kv-key">롤백</span><span class="modal-kv-val">${p.rollback ? '<span class="badge badge-amber">있음</span>' : '없음'}</span>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">참여 에이전트</div>
+      <div class="modal-kv">
+        ${p.agents.map(a => `
+          <span class="modal-kv-key"><span class="badge ${getAgentBadge(a.id)}">${a.name}</span></span>
+          <span class="modal-kv-val">${a.duration || (a.status === 'running' ? '실행 중...' : '—')}</span>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ── Splash ────────────────────────────────────────────────────────────────────
+(function() {
+  const splash = document.getElementById('splash');
+  if (sessionStorage.getItem('splashShown')) {
+    splash.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('splashShown', '1');
+  setTimeout(() => {
+    splash.classList.add('fade-out');
+    setTimeout(() => { splash.style.display = 'none'; }, 600);
+  }, 3000);
+})();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadData();
+setInterval(loadData, 3000);
+</script>
+</body>
+</html>
