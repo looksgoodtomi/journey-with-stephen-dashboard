@@ -829,6 +829,11 @@
         <span class="globalbar-title">주성치와 함께하는 디자인 여행</span>
       </div>
       <div class="globalbar-right">
+        <div class="ds-sync-pill" onclick="openScreenSyncModal()" style="cursor:pointer">
+          <img src="assets/screensync.png" alt="screen-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
+          <span class="ds-sync-label">이혼대법</span>
+          <span class="ds-sync-time" id="screen-sync-time"></span>
+        </div>
         <div class="ds-sync-pill" onclick="openDsSyncModal()" style="cursor:pointer">
           <img src="assets/dssync.png" alt="ds-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
           <span class="ds-sync-label">무적풍화륜</span>
@@ -936,6 +941,20 @@
   </div>
 </div>
 
+<!-- Modal: Screen Sync History -->
+<div class="modal-backdrop" id="modal-screensync">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <img src="assets/screensync.png" alt="screen-sync" style="width:22px;height:22px;image-rendering:pixelated;flex-shrink:0;">
+        이혼대법 실행 내역
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-screensync')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-screensync-body"></div>
+  </div>
+</div>
+
 <!-- Modal: Image Viewer -->
 <div class="modal-backdrop" id="modal-image">
   <img src="assets/keyvisual.png" alt="키비주얼" onclick="closeModal('modal-image')">
@@ -1023,7 +1042,7 @@ function closeModal(id) {
   if (activeModal === id) activeModal = null;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && activeModal) closeModal(activeModal); });
-['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-image'].forEach(id => {
+['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-screensync','modal-image'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
 });
 
@@ -1048,6 +1067,7 @@ function selectProject(id) { activeProjectId = id; renderSidebar(); renderProjec
 
 // ── Data Loading ──────────────────────────────────────────────────────────────
 let DS_SYNC_HISTORY = [];
+let SCREEN_SYNC_HISTORY = [];
 
 async function loadData() {
   try {
@@ -1068,13 +1088,15 @@ async function loadData() {
       ? dashText.trim().split('\n').filter(l => l.trim()).map(l => JSON.parse(l))
       : [];
 
-    DS_SYNC_HISTORY = allEntries.filter(e => e.type === 'ds-sync').reverse();
-    const history   = allEntries.filter(e => e.type !== 'ds-sync').reverse();
+    DS_SYNC_HISTORY     = allEntries.filter(e => e.type === 'ds-sync').reverse();
+    SCREEN_SYNC_HISTORY = allEntries.filter(e => e.type === 'screen-sync').reverse();
+    const history       = allEntries.filter(e => e.id && Array.isArray(e.agents)).reverse();
 
     PROJECTS = [...(liveSession ? [liveSession] : []), ...history];
 
-    // 무적풍화륜 최근 시각
-    if (DS_SYNC_HISTORY.length > 0) GLOBAL.dsSyncLastAt = DS_SYNC_HISTORY[0].at;
+    // 최근 실행 시각
+    if (DS_SYNC_HISTORY.length > 0)     GLOBAL.dsSyncLastAt     = DS_SYNC_HISTORY[0].at;
+    if (SCREEN_SYNC_HISTORY.length > 0) GLOBAL.screenSyncLastAt = SCREEN_SYNC_HISTORY[0].at;
 
     // 활성 프로젝트 초기화
     if (PROJECTS.length > 0 && !PROJECTS.find(p => p.id === activeProjectId)) {
@@ -1100,7 +1122,33 @@ function setConnStatus(live) {
 
 // ── Global Bar ────────────────────────────────────────────────────────────────
 function renderGlobalBar() {
-  document.getElementById('ds-sync-time').textContent = GLOBAL.dsSyncLastAt;
+  document.getElementById('ds-sync-time').textContent    = GLOBAL.dsSyncLastAt    || '—';
+  document.getElementById('screen-sync-time').textContent = GLOBAL.screenSyncLastAt || '—';
+}
+
+// ── Screen Sync Modal ─────────────────────────────────────────────────────────
+function openScreenSyncModal() {
+  const body = document.getElementById('modal-screensync-body');
+  if (SCREEN_SYNC_HISTORY.length === 0) {
+    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">실행 내역 없음</div>`;
+  } else {
+    body.innerHTML = `
+      <div class="modal-log-list">
+        ${SCREEN_SYNC_HISTORY.map((e, i) => `
+          <div class="modal-log-item" style="${i === 0 ? 'color:var(--text-primary)' : ''}">
+            <span class="modal-log-ts">${e.at}</span>
+            <div class="modal-log-text">
+              ${e.summary || 'screen 동기화 완료'}
+              ${(e.screensScanned != null || e.patternsAdded != null) ? `
+              <div style="margin-top:4px;display:flex;gap:8px;">
+                ${e.screensScanned != null ? `<span class="badge badge-cyan">화면 ${e.screensScanned}개</span>` : ''}
+                ${e.patternsAdded   != null ? `<span class="badge badge-violet">패턴 +${e.patternsAdded}</span>` : ''}
+              </div>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+  openModal('modal-screensync');
 }
 
 // ── DS Sync Modal ─────────────────────────────────────────────────────────────
