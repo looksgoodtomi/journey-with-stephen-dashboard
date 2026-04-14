@@ -12,12 +12,12 @@
     --bg-surface: #0d0f12;
     --bg-elevated: #131518;
     --bg-hover: #18191d;
-    --border: #212226;
-    --border-subtle: #131518;
+    --border: #272b31;
+    --border-subtle: #1c1f24;
     --border-gold: rgba(180,140,60,0.35);
     --text-primary: #c8cdd4;
-    --text-secondary: #60646b;
-    --text-muted: #303236;
+    --text-secondary: #868d99;
+    --text-muted: #565d6a;
     --gold: #c9a84c;
     --gold-dim: rgba(201,168,76,0.12);
     --gold-bright: #f0c060;
@@ -151,7 +151,35 @@
     margin-bottom: 4px;
   }
   .project-item.active .project-item-name { color: var(--text-primary); }
-  .project-item-meta { display: flex; align-items: center; gap: 5px; }
+  .project-item-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .project-item-id {
+    font-size: 10.5px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .copy-flash {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-gold);
+    color: var(--gold);
+    padding: 7px 15px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .copy-flash.show { opacity: 1; }
 
   /* ── Badges ─── */
   .badge {
@@ -201,20 +229,6 @@
   }
   .globalbar-left { display: flex; align-items: center; gap: 12px; flex: 1; }
   .globalbar-right { display: flex; align-items: center; gap: 8px; }
-  .conn-pill {
-    display: flex; align-items: center; gap: 5px;
-    padding: 3px 9px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
-  }
-  .conn-dot {
-    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-  }
-  .conn-pill.live   { color: var(--accent-green); border-color: rgba(59,165,93,0.3); }
-  .conn-pill.live   .conn-dot { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
-  .conn-pill.offline { color: var(--text-muted); }
-  .conn-pill.offline .conn-dot { background: var(--text-muted); }
   .globalbar-title {
     font-size: 14px;
     font-weight: 600;
@@ -536,6 +550,35 @@
   .log-line.log-error    .log-msg { color: var(--accent-red);   }
 
 
+  /* ── Conv Table (markdown rendering) ─── */
+  .conv-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'Pretendard', sans-serif;
+    font-size: 12.5px;
+  }
+  .conv-table th {
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+  }
+  .conv-table td {
+    padding: 6px 10px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    line-height: 1.55;
+  }
+  .conv-table tr:last-child td { border-bottom: none; }
+  .conv-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
   /* ── Modals ─── */
   .modal-backdrop {
     position: fixed;
@@ -656,8 +699,9 @@
     border: none;
   }
 
-  /* Builder modal */
-  #modal-builder .modal { width: 640px; }
+  /* Agent / Builder modal wider */
+  #modal-agent .modal   { width: 680px; }
+  #modal-builder .modal { width: 680px; }
   .figma-result-box {
     background: var(--bg-elevated);
     border: 1px solid var(--border);
@@ -839,10 +883,6 @@
           <span class="ds-sync-label">무적풍화륜</span>
           <span class="ds-sync-time" id="ds-sync-time"></span>
         </div>
-        <div class="conn-pill offline" id="conn-pill">
-          <span class="conn-dot"></span>
-          <span id="conn-label">오프라인</span>
-        </div>
       </div>
     </div>
 
@@ -854,6 +894,10 @@
           <div class="project-meta-row" id="project-meta-row"></div>
         </div>
         <div class="project-header-actions">
+          <button class="btn" onclick="openDirectorModal(activeProjectId)" style="display:flex;align-items:center;gap:6px;padding:6px 12px">
+            <img src="assets/director.png" alt="director" style="width:16px;height:16px;image-rendering:pixelated;flex-shrink:0;">
+            감독 대화
+          </button>
           <button class="btn" onclick="openModal('modal-overview')">개요 보기</button>
         </div>
       </div>
@@ -927,6 +971,20 @@
   </div>
 </div>
 
+<!-- Modal: Director Conversations -->
+<div class="modal-backdrop" id="modal-director">
+  <div class="modal" style="width:700px;max-width:calc(100vw - 40px)">
+    <div class="modal-header">
+      <div class="modal-title">
+        <img src="assets/director.png" alt="director" style="width:22px;height:22px;image-rendering:pixelated;flex-shrink:0;">
+        <span id="modal-director-title">감독 대화 내역</span>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-director')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-director-body"></div>
+  </div>
+</div>
+
 <!-- Modal: DS Sync History -->
 <div class="modal-backdrop" id="modal-dssync">
   <div class="modal">
@@ -982,12 +1040,12 @@ function toggleSidebar() {
 
 // ── Column config ─────────────────────────────────────────────────────────────
 const COL_CONFIG = {
-  'planner':     { label: 'planner',         icon: 'assets/planner.png',   accent: '#3b82f6' },
-  'ui-designer': { label: 'ui-designer',     icon: 'assets/designer.png',  accent: '#3ba55d' },
-  'validator':   { label: 'validator',       icon: 'assets/validator.png', accent: '#c9a020' },
-  'ux-improver': { label: 'ux-improver',     icon: 'assets/improver.png',  accent: '#3aa8c4' },
-  'builder':     { label: 'figma-builder',   icon: 'assets/builder.png',   accent: '#bf3f8c' },
-  'reviewer':    { label: 'figma-reviewer',  icon: 'assets/reviewer.png',  accent: '#7c4dff' },
+  'planner':     { label: 'planner',        icon: 'assets/planner.png',   accent: '#3b82f6' },
+  'validator':   { label: 'validator',      icon: 'assets/validator.png', accent: '#c9a020' },
+  'ux-improver': { label: 'ux-improver',    icon: 'assets/improver.png',  accent: '#3aa8c4' },
+  'ui-designer': { label: 'ui-designer',    icon: 'assets/designer.png',  accent: '#3ba55d' },
+  'builder':     { label: 'figma-builder',  icon: 'assets/builder.png',   accent: '#bf3f8c' },
+  'reviewer':    { label: 'figma-reviewer', icon: 'assets/reviewer.png',  accent: '#7c4dff' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1025,8 +1083,164 @@ function getLogClass(type) {
 }
 
 function getAgentBadge(agent) {
-  const m = { planner:'badge-blue', 'ui-designer':'badge-green', validator:'badge-yellow', 'ux-improver':'badge-cyan', builder:'badge-purple', reviewer:'badge-violet', director:'badge-gray' };
+  const m = {
+    planner:'badge-blue',
+    'validator-plan':'badge-amber', 'plan-validator':'badge-amber',
+    'ux-improver':'badge-cyan',
+    'ui-designer':'badge-green',
+    validator:'badge-yellow',
+    builder:'badge-purple', 'figma-builder':'badge-purple',
+    reviewer:'badge-violet', 'figma-reviewer':'badge-violet',
+    director:'badge-gray'
+  };
   return m[agent] || 'badge-gray';
+}
+
+function getAgentLabel(agent) {
+  const m = {
+    'validator-plan': 'validator·plan',
+    'plan-validator': 'validator·plan',
+    'figma-builder':  'builder',
+    'figma-reviewer': 'reviewer',
+  };
+  return m[agent] || agent;
+}
+
+function displayDuration(a) {
+  if (!a) return '—';
+  if (a.executionDuration && a.duration) {
+    return `${a.executionDuration} <span style="color:var(--text-muted);font-weight:400">(총 ${a.duration})</span>`;
+  }
+  return a.executionDuration || a.duration || '';
+}
+
+function getProgressBadge(p) {
+  if (!p || !Array.isArray(p.agents)) return '';
+  const done = id => p.agents.some(a => a.id === id && a.status === 'done');
+  if (done('builder') || done('reviewer')) return '<span class="badge badge-purple">생성</span>';
+  if (done('ux-improver'))                 return '<span class="badge badge-cyan">설계</span>';
+  if (done('planner'))                     return '<span class="badge badge-blue">기획</span>';
+  return '';
+}
+
+// ── Copy Quest ID ─────────────────────────────────────────────────────────────
+function copyQuestId(id, event) {
+  event.stopPropagation();
+  const text = id;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showCopyFlash(text)).catch(() => legacyCopy(text));
+  } else {
+    legacyCopy(text);
+  }
+}
+function legacyCopy(text) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  showCopyFlash(text);
+}
+function showCopyFlash(text) {
+  let flash = document.getElementById('copy-flash');
+  if (!flash) {
+    flash = document.createElement('div');
+    flash.id = 'copy-flash';
+    flash.className = 'copy-flash';
+    document.body.appendChild(flash);
+  }
+  flash.textContent = '"' + text + '" 복사됨';
+  flash.classList.add('show');
+  clearTimeout(flash._timer);
+  flash._timer = setTimeout(() => flash.classList.remove('show'), 2200);
+}
+
+// ── Markdown Renderer ─────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function inlineMd(text) {
+  let t = escHtml(text);
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--text-primary);font-weight:700">$1</strong>');
+  t = t.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em style="color:var(--text-secondary)">$1</em>');
+  t = t.replace(/`([^`\n]+)`/g, '<code style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:2px;padding:1px 5px;font-size:11px;font-family:monospace;color:var(--accent-cyan)">$1</code>');
+  return t;
+}
+function renderMdTable(tableLines) {
+  const rows = tableLines.map(l => l.split('|').slice(1,-1).map(c => c.trim()));
+  if (rows.length < 2) return '';
+  const headers = rows[0];
+  const dataRows = rows.slice(2);
+  const head = headers.map(h => `<th>${inlineMd(h)}</th>`).join('');
+  const body = dataRows.map(row =>
+    `<tr>${row.map(c => `<td>${inlineMd(c)}</td>`).join('')}</tr>`
+  ).join('');
+  return `<div style="overflow-x:auto;margin:8px 0"><table class="conv-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function renderMarkdown(text) {
+  if (!text || typeof text !== 'string') return escHtml(String(text || '—'));
+  const lines = text.split('\n');
+  let html = '';
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // Fenced code block
+    if (line.trim().startsWith('```')) {
+      let code = '';
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) { code += lines[i] + '\n'; i++; }
+      html += `<pre style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:3px;padding:10px 12px;font-size:12px;overflow-x:auto;margin:8px 0;font-family:monospace;color:var(--text-primary);white-space:pre-wrap">${escHtml(code.trimEnd())}</pre>`;
+      i++; continue;
+    }
+    // Table: starts with | and next line is separator
+    if (line.trim().startsWith('|') && i+1 < lines.length && /^\s*\|[-:|\s]+\|\s*$/.test(lines[i+1])) {
+      const tbl = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) { tbl.push(lines[i]); i++; }
+      html += renderMdTable(tbl); continue;
+    }
+    // Heading
+    const hm = line.match(/^(#{1,3})\s+(.+)$/);
+    if (hm) {
+      const lvl = hm[1].length;
+      const sz = ['17px','14px','13px'][lvl-1];
+      html += `<div style="font-size:${sz};font-weight:${lvl===1?'700':'600'};color:var(--text-primary);margin:12px 0 5px;${lvl<=2?'padding-bottom:4px;border-bottom:1px solid var(--border)':''}">${inlineMd(hm[2])}</div>`;
+      i++; continue;
+    }
+    // Unordered list
+    if (/^\s*[-*+]\s+/.test(line)) {
+      let items = '';
+      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+        items += `<li style="margin-bottom:3px">${inlineMd(lines[i].replace(/^\s*[-*+]\s+/,''))}</li>`;
+        i++;
+      }
+      html += `<ul style="padding-left:18px;margin:5px 0;color:var(--text-secondary)">${items}</ul>`; continue;
+    }
+    // Ordered list
+    if (/^\s*\d+\.\s+/.test(line)) {
+      let items = '';
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        items += `<li style="margin-bottom:3px">${inlineMd(lines[i].replace(/^\s*\d+\.\s+/,''))}</li>`;
+        i++;
+      }
+      html += `<ol style="padding-left:18px;margin:5px 0;color:var(--text-secondary)">${items}</ol>`; continue;
+    }
+    // HR
+    if (/^[-*_]{3,}$/.test(line.trim())) {
+      html += '<hr style="border:none;border-top:1px solid var(--border);margin:10px 0">';
+      i++; continue;
+    }
+    // Blank
+    if (line.trim() === '') {
+      if (html && !html.endsWith('<br>') && !html.endsWith('</ul>') && !html.endsWith('</ol>') && !html.endsWith('</div>') && !html.endsWith('</pre>')) html += '<br>';
+      i++; continue;
+    }
+    // Paragraph
+    html += `<p style="margin:3px 0;color:var(--text-secondary);line-height:1.7">${inlineMd(line)}</p>`;
+    i++;
+  }
+  return html || '—';
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -1042,7 +1256,7 @@ function closeModal(id) {
   if (activeModal === id) activeModal = null;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && activeModal) closeModal(activeModal); });
-['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-screensync','modal-image'].forEach(id => {
+['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-screensync','modal-director','modal-image'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
 });
 
@@ -1055,9 +1269,11 @@ function renderSidebar() {
   }
   document.getElementById('project-list').innerHTML = PROJECTS.map(p => `
     <div class="project-item ${p.id === activeProjectId ? 'active' : ''}" onclick="selectProject('${p.id}')">
-      <div class="project-item-name">${p.name}</div>
+      <div class="project-item-name">${escHtml(p.name)}</div>
+      <div class="project-item-id" onclick="copyQuestId('${p.id}', event)" title="클릭하여 복사">${p.id}</div>
       <div class="project-item-meta">
         ${getStatusBadge(p.status)}
+        ${getProgressBadge(p)}
         ${p.rollback ? '<span class="badge badge-amber">롤백</span>' : ''}
       </div>
     </div>
@@ -1103,22 +1319,13 @@ async function loadData() {
       activeProjectId = PROJECTS[0].id;
     }
 
-    setConnStatus(true);
     renderGlobalBar();
     renderSidebar();
     renderProject();
   } catch(e) {
-    setConnStatus(false);
   }
 }
 
-function setConnStatus(live) {
-  const pill = document.getElementById('conn-pill');
-  const label = document.getElementById('conn-label');
-  if (!pill) return;
-  pill.className = 'conn-pill ' + (live ? 'live' : 'offline');
-  label.textContent = live ? '실시간' : '오프라인';
-}
 
 // ── Global Bar ────────────────────────────────────────────────────────────────
 function renderGlobalBar() {
@@ -1151,6 +1358,62 @@ function openScreenSyncModal() {
   openModal('modal-screensync');
 }
 
+// ── Director Modal ────────────────────────────────────────────────────────────
+function openDirectorModal(projectId) {
+  const p = PROJECTS.find(x => x.id === projectId);
+  const body = document.getElementById('modal-director-body');
+  const titleEl = document.getElementById('modal-director-title');
+  if (titleEl) titleEl.textContent = p ? p.name : '감독 대화 내역';
+
+  if (!p) {
+    body.innerHTML = `<div style="padding:32px 0;text-align:center;color:var(--text-muted);font-size:13px">대화 내역 없음</div>`;
+    openModal('modal-director');
+    return;
+  }
+
+  const dirLogs    = (p.logs   || []).filter(l => l.agent === 'director');
+  const doneAgents = (p.agents || []).filter(a => a.status === 'done' && a.summary);
+
+  const dirLogsHtml = dirLogs.length > 0 ? `
+    <div class="modal-section">
+      <div class="modal-section-title">디렉터 지시 로그</div>
+      <div style="display:flex;flex-direction:column;gap:2px;padding:10px;background:var(--bg-base);border-radius:var(--radius-sm)">
+        ${dirLogs.map(l => `
+          <div style="display:grid;grid-template-columns:60px auto 1fr;align-items:baseline;gap:8px;padding:3px 0;font-size:12px">
+            <span style="color:var(--text-muted);font-family:'Pretendard',monospace">${l.ts}</span>
+            <span class="badge badge-gold" style="font-size:9.5px;padding:2px 6px;min-width:auto">감독</span>
+            <span style="color:var(--text-secondary);line-height:1.55">${escHtml(l.msg)}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const agentsHtml = doneAgents.length > 0 ? `
+    <div class="modal-section">
+      <div class="modal-section-title">에이전트 결과</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${doneAgents.map(a => {
+          const cfg = COL_CONFIG[a.id] || {};
+          const outputHtml = a.output ? `<div style="margin-top:6px;font-size:12px;color:var(--text-secondary);padding-top:6px;border-top:1px solid var(--border-subtle)">${renderMarkdown(a.output)}</div>` : '';
+          return `
+            <div style="padding:10px 12px;background:var(--bg-base);border-radius:var(--radius-sm);border-left:2px solid ${(COL_CONFIG[a.id]||{}).accent||'var(--border)'}">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+                ${cfg.icon ? `<img src="${cfg.icon}" style="width:16px;height:16px;image-rendering:pixelated;flex-shrink:0">` : ''}
+                <span class="badge ${getAgentBadge(a.id)}" style="font-size:10px">${a.name}</span>
+                ${(a.executionDuration || a.duration) ? `<span style="font-size:11px;color:var(--text-muted);margin-left:auto">${displayDuration(a)}</span>` : ''}
+              </div>
+              <div style="font-size:13px;color:var(--text-secondary);line-height:1.65">${escHtml(a.summary)}</div>
+              ${outputHtml}
+            </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  body.innerHTML = dirLogsHtml + agentsHtml ||
+    `<div style="padding:32px 0;text-align:center;color:var(--text-muted);font-size:13px">대화 내역 없음</div>`;
+
+  openModal('modal-director');
+}
+
 // ── DS Sync Modal ─────────────────────────────────────────────────────────────
 function openDsSyncModal() {
   const body = document.getElementById('modal-dssync-body');
@@ -1172,17 +1435,75 @@ function openDsSyncModal() {
 // ── Project Header ────────────────────────────────────────────────────────────
 function renderProjectHeader(p) {
   document.getElementById('project-name-row').innerHTML = `
-    <span class="project-name">${p.name}</span>
+    <span class="project-name">${escHtml(p.name)}</span>
     ${getStatusBadge(p.status)}
     ${p.rollback ? '<span class="badge badge-amber">롤백</span>' : ''}
     <span class="badge ${p.mode === '생성 모드' ? 'badge-purple' : 'badge-blue'}">${p.mode === '생성 모드' ? '생성' : '설계'}</span>
   `;
   const parts = [];
+  parts.push(`<span class="project-meta-item"><span class="label">ID</span> <span style="cursor:pointer" onclick="copyQuestId('${p.id}', event)">${p.id}</span></span>`);
   if (p.startedAt)   parts.push(`<span class="project-meta-item"><span class="label">시작</span> ${p.startedAt}</span>`);
   if (p.completedAt) parts.push(`<span class="project-meta-item"><span class="label">완료</span> ${p.completedAt}</span>`);
   if (p.duration)    parts.push(`<span class="project-meta-item"><span class="label">소요</span> <span class="mono">${p.duration}</span></span>`);
   document.getElementById('project-meta-row').innerHTML =
     parts.join('<span style="color:var(--border);margin:0 12px">·</span>');
+}
+
+// ── Kanban helpers ────────────────────────────────────────────────────────────
+function buildAgentCard(projectId, a, modeLabel) {
+  const modeColors = { plan: '#c96b1a', ui: '#c9a020' };
+  const modeColor  = modeColors[modeLabel] || 'var(--text-muted)';
+  const modeTag = modeLabel
+    ? `<span style="font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:${modeColor};margin-right:4px">${modeLabel}</span>`
+    : '';
+
+  if (a.status === 'idle') {
+    return `
+      <div class="kanban-card status-idle" onclick="openAgentModal('${projectId}','${a.id}')">
+        <div class="card-status-row">${modeTag}${statusText(a.status)}</div>
+        <div class="card-desc" style="font-style:italic;opacity:0.5">소환 대기 중...</div>
+      </div>`;
+  }
+
+  const figmaBlock = (a.id === 'builder' && a.figma) ? `
+    <div class="builder-figma-preview">
+      <div class="builder-figma-label">뽀로뽀로미</div>
+      <div class="builder-figma-detail">
+        ${a.figma.file} / ${a.figma.page}<br>
+        frame: ${a.figma.frame}<br>
+        node: <span style="color:var(--accent-purple)">${a.figma.nodeId}</span>
+      </div>
+    </div>` : '';
+
+  const hasAttempts = Array.isArray(a.history) && a.history.length > 0 && typeof a.history[0] === 'object';
+  const prevAttempts = hasAttempts ? a.history.slice(0, -1) : [];
+  const attemptCards = prevAttempts.map(h => `
+    <div class="kanban-card status-${h.status} attempt-prev" onclick="openAgentModal('${projectId}','${a.id}')">
+      <div class="card-status-row">
+        ${modeTag}${statusText(h.status)}
+        <span class="attempt-num">${h.attempt}회차</span>
+      </div>
+      <div class="card-desc">${h.summary}</div>
+      <div class="card-meta">
+        <span class="card-time">${h.startedAt || ''}</span>
+        <span class="card-duration">${h.duration || ''}</span>
+      </div>
+    </div>`).join('');
+
+  return attemptCards + `
+    <div class="kanban-card status-${a.status}" onclick="openAgentModal('${projectId}','${a.id}')">
+      <div class="card-status-row">
+        ${modeTag}${statusText(a.status)}
+        ${hasAttempts ? `<span class="attempt-num">${a.history.length}회차</span>` : ''}
+        ${a.notes ? `<span style="color:var(--accent-amber);font-size:11px;margin-left:auto" title="${a.notes.replace(/"/g,'&quot;')}">⚠</span>` : ''}
+      </div>
+      <div class="card-desc">${a.summary || '—'}</div>
+      ${figmaBlock}
+      <div class="card-meta">
+        <span class="card-time">${a.startedAt || ''}</span>
+        <span class="card-duration">${a.executionDuration ? displayDuration(a) : (a.duration || (a.status === 'running' ? '실행 중' : ''))}</span>
+      </div>
+    </div>`;
 }
 
 // ── Kanban ────────────────────────────────────────────────────────────────────
@@ -1192,58 +1513,36 @@ function renderKanban(p) {
 
   document.getElementById('kanban').innerHTML = Object.keys(COL_CONFIG).map(colId => {
     const cfg = COL_CONFIG[colId];
-    const a = agentMap[colId];
-    const duration = a ? (a.duration || (a.status === 'running' ? '...' : '—')) : '—';
-
     let cardHtml = '';
-    if (!a) {
-      cardHtml = `<div class="empty-col">이 퀘스트에서 사용 안 함</div>`;
-    } else if (a.status === 'idle') {
-      cardHtml = `
-        <div class="kanban-card status-idle" onclick="openAgentModal('${p.id}','${a.id}')">
-          <div class="card-status-row">${statusText(a.status)}</div>
-          <div class="card-desc" style="font-style:italic;opacity:0.5">소환 대기 중...</div>
-        </div>`;
+    let duration = '—';
+
+    if (colId === 'validator') {
+      // validator 컬럼: plan 모드 카드 + ui 모드 카드 두 장
+      const aPlan = agentMap['validator-plan'];
+      const aUi   = agentMap['validator'];
+
+      const planCard = aPlan ? buildAgentCard(p.id, aPlan, 'plan') : '';
+      const uiCard   = aUi   ? buildAgentCard(p.id, aUi,   'ui')  : '';
+
+      cardHtml = planCard + uiCard || `<div class="empty-col">이 퀘스트에서 사용 안 함</div>`;
+      const running = (aPlan?.status === 'running') || (aUi?.status === 'running');
+      duration = running ? '...' : '—';
+
     } else {
-      const figmaBlock = (colId === 'builder' && a.figma) ? `
-        <div class="builder-figma-preview">
-          <div class="builder-figma-label">뽀로뽀로미</div>
-          <div class="builder-figma-detail">
-            ${a.figma.file} / ${a.figma.page}<br>
-            frame: ${a.figma.frame}<br>
-            node: <span style="color:var(--accent-purple)">${a.figma.nodeId}</span>
-          </div>
-        </div>` : '';
+      const a = agentMap[colId];
+      duration = a ? (a.executionDuration ? displayDuration(a) : (a.duration || (a.status === 'running' ? '...' : '—'))) : '—';
 
-      const hasAttempts = Array.isArray(a.history) && a.history.length > 0 && typeof a.history[0] === 'object';
-      const prevAttempts = hasAttempts ? a.history.slice(0, -1) : [];
-      const attemptCards = prevAttempts.map(h => `
-        <div class="kanban-card status-${h.status} attempt-prev" onclick="openAgentModal('${p.id}','${a.id}')">
-          <div class="card-status-row">
-            ${statusText(h.status)}
-            <span class="attempt-num">${h.attempt}회차</span>
-          </div>
-          <div class="card-desc">${h.summary}</div>
-          <div class="card-meta">
-            <span class="card-time">${h.startedAt || ''}</span>
-            <span class="card-duration">${h.duration || ''}</span>
-          </div>
-        </div>`).join('');
-
-      cardHtml = attemptCards + `
-        <div class="kanban-card status-${a.status}" onclick="openAgentModal('${p.id}','${a.id}')">
-          <div class="card-status-row">
-            ${statusText(a.status)}
-            ${hasAttempts ? `<span class="attempt-num">${a.history.length}회차</span>` : ''}
-            ${a.notes ? `<span style="color:var(--accent-amber);font-size:11px;margin-left:auto" title="${a.notes.replace(/"/g,'&quot;')}">⚠</span>` : ''}
-          </div>
-          <div class="card-desc">${a.summary || '—'}</div>
-          ${figmaBlock}
-          <div class="card-meta">
-            <span class="card-time">${a.startedAt || ''}</span>
-            <span class="card-duration">${a.duration || (a.status === 'running' ? '실행 중' : '')}</span>
-          </div>
-        </div>`;
+      if (!a) {
+        cardHtml = `<div class="empty-col">이 퀘스트에서 사용 안 함</div>`;
+      } else if (a.status === 'idle') {
+        cardHtml = `
+          <div class="kanban-card status-idle" onclick="openAgentModal('${p.id}','${a.id}')">
+            <div class="card-status-row">${statusText(a.status)}</div>
+            <div class="card-desc" style="font-style:italic;opacity:0.5">소환 대기 중...</div>
+          </div>`;
+      } else {
+        cardHtml = buildAgentCard(p.id, a, null);
+      }
     }
 
     return `
@@ -1268,7 +1567,7 @@ function renderLogs(p) {
     return `
       <div class="log-line ${getLogClass(l.type)}" onclick="openLogDetailModal('${p.id}',${origIdx})">
         <span class="log-ts">${l.ts}</span>
-        <span class="log-agent"><span class="badge ${getAgentBadge(l.agent)}">${l.agent}</span></span>
+        <span class="log-agent"><span class="badge ${getAgentBadge(l.agent)}">${getAgentLabel(l.agent)}</span></span>
         <span class="log-msg">${l.msg}</span>
       </div>`;
   }).join('');
@@ -1290,6 +1589,7 @@ function renderEmptyState() {
 
   document.getElementById('kanban').innerHTML = Object.keys(COL_CONFIG).map(colId => {
     const cfg = COL_CONFIG[colId];
+    const bodyHtml = `<div class="empty-col" style="opacity:0.35">대기 중</div>`;
     return `
       <div class="kanban-col ${colId === 'builder' ? 'col-builder' : ''}" style="--col-accent:${cfg.accent}">
         <div class="kanban-col-header">
@@ -1299,9 +1599,7 @@ function renderEmptyState() {
           </div>
           <span class="kanban-col-duration">—</span>
         </div>
-        <div class="kanban-col-body">
-          <div class="empty-col" style="opacity:0.35">대기 중</div>
-        </div>
+        <div class="kanban-col-body">${bodyHtml}</div>
       </div>`;
   }).join('');
 
@@ -1335,18 +1633,18 @@ function openAgentModal(projectId, agentId) {
       <div class="modal-kv">
         <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(a.status)}</span>
         <span class="modal-kv-key">시작</span><span class="modal-kv-val">${a.startedAt || '—'}</span>
-        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${a.duration || (a.status === 'running' ? '실행 중' : '—')}</span>
+        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${a.executionDuration ? displayDuration(a) : (a.duration || (a.status === 'running' ? '실행 중' : '—'))}</span>
       </div>
     </div>
     <div class="divider"></div>
     <div class="modal-section">
       <div class="modal-section-title">요약</div>
-      <div style="font-size:14px;color:var(--text-secondary);line-height:1.7">${a.summary || '—'}</div>
+      <div style="font-size:14px;color:var(--text-secondary);line-height:1.7">${escHtml(a.summary || '—')}</div>
     </div>
     ${a.output ? `
     <div class="modal-section">
-      <div class="modal-section-title">출력</div>
-      <div style="font-size:13px;color:var(--text-primary);line-height:1.7;font-family:'Pretendard',sans-serif">${a.output}</div>
+      <div class="modal-section-title">대화 내역</div>
+      <div style="font-size:13px;line-height:1.7;font-family:'Pretendard',sans-serif">${renderMarkdown(a.output)}</div>
     </div>` : ''}
     ${notesHtml}
   `;
@@ -1361,7 +1659,7 @@ function renderBuilderModal(a) {
       <div class="modal-kv">
         <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(a.status)}</span>
         <span class="modal-kv-key">시작</span><span class="modal-kv-val">${a.startedAt || '—'}</span>
-        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${a.duration || '—'}</span>
+        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${a.executionDuration ? displayDuration(a) : (a.duration || '—')}</span>
       </div>
     </div>
     <div class="divider"></div>
@@ -1410,7 +1708,7 @@ function openLogDetailModal(projectId, logIndex) {
         ${p.logs.map((l, i) => `
           <div class="modal-log-item ${getLogClass(l.type)}" style="${i === logIndex ? 'background:var(--bg-elevated);padding-left:6px;border-radius:3px' : ''}">
             <span class="modal-log-ts">${l.ts}</span>
-            <span class="modal-log-text">[${l.agent}] ${l.msg}</span>
+            <span class="modal-log-text">[${getAgentLabel(l.agent)}] ${l.msg}</span>
           </div>`).join('')}
       </div>
     </div>
@@ -1426,7 +1724,7 @@ function renderLogModal() {
       ${p.logs.map(l => `
         <div class="modal-log-item ${getLogClass(l.type)}">
           <span class="modal-log-ts">${l.ts}</span>
-          <span class="modal-log-text">[${l.agent}] ${l.msg}</span>
+          <span class="modal-log-text">[${getAgentLabel(l.agent)}] ${l.msg}</span>
         </div>`).join('')}
     </div>
   `;
@@ -1473,7 +1771,7 @@ function renderOverviewModal() {
       <div class="modal-kv">
         ${p.agents.map(a => `
           <span class="modal-kv-key"><span class="badge ${getAgentBadge(a.id)}">${a.name}</span></span>
-          <span class="modal-kv-val">${a.duration || (a.status === 'running' ? '실행 중...' : '—')}</span>
+          <span class="modal-kv-val">${a.executionDuration ? displayDuration(a) : (a.duration || (a.status === 'running' ? '실행 중...' : '—'))}</span>
         `).join('')}
       </div>
     </div>
