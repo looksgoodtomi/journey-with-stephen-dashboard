@@ -56,6 +56,7 @@
     background: var(--bg-base);
     color: var(--text-primary);
     line-height: 1.5;
+    cursor: default;
   }
 
   /* ── Subtle bg texture ─── */
@@ -162,6 +163,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    width: fit-content;
   }
   .copy-flash {
     position: fixed;
@@ -211,6 +213,7 @@
   .log-agent .badge { width: 90px; justify-content: center; }
   .badge-gray   { background: var(--bg-elevated);       color: var(--text-muted);    border: 1px solid var(--border);          }
   .badge-gold   { background: var(--gold-dim);          color: var(--gold);          border: 1px solid var(--border-gold);     }
+  .badge-sm     { font-size: 9.5px !important; padding: 2px 5px !important; min-width: auto !important; letter-spacing: 0 !important; }
 
   /* ── Main ─── */
   #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -262,7 +265,7 @@
     font-size: 16px;
     line-height: 1;
   }
-  #sidebar-toggle { padding: 0; }
+  #sidebar-toggle { padding: 0 6px; font-size: 12px; white-space: nowrap; }
   .icon-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); color: var(--text-primary); }
 
   /* ── Project Header ─── */
@@ -431,6 +434,34 @@
     line-height: 1.55;
     margin-bottom: 8px;
   }
+  .card-summary-line {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 5px;
+    font-family: 'Pretendard', sans-serif;
+  }
+  .card-thinking {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    max-height: 130px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-bottom: 8px;
+    padding-right: 2px;
+    font-family: 'Pretendard', sans-serif;
+  }
+  /* validator result badge on card */
+  .card-result { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; flex-wrap: wrap; }
+  .card-result-pass { display: inline-flex; align-items: center; padding: 2px 7px; background: var(--accent-green-dim); color: var(--accent-green); border: 1px solid rgba(59,165,93,0.3); border-radius: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; }
+  .card-result-fail { display: inline-flex; align-items: center; padding: 2px 7px; background: var(--accent-red-dim); color: var(--accent-red); border: 1px solid rgba(192,55,55,0.3); border-radius: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; }
+  .card-result-counts { font-size: 10.5px; color: var(--text-muted); }
+  .card-result-blocker { color: var(--accent-red); font-weight: 600; }
+  .card-result-warn { color: var(--accent-amber); font-weight: 600; }
+  .card-result-note { color: var(--text-muted); }
   .card-meta {
     display: flex;
     align-items: center;
@@ -495,11 +526,35 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
   }
+  #log-panel, #director-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+  #log-panel { border-right: 1px solid var(--border); }
+  #director-panel .log-line { cursor: default; }
+  #director-panel .log-line:hover { background: transparent; }
+
+  /* ── Director Panel items ─── */
+  .dp-director-msg {
+    display: grid;
+    grid-template-columns: 54px 52px 1fr;
+    align-items: baseline;
+    gap: 0 6px;
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .dp-ts { font-size: 11px; color: var(--text-muted); font-family: 'Pretendard', sans-serif; }
+  .dp-badge { flex-shrink: 0; }
+  .dp-msg { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; font-family: 'Pretendard', sans-serif; }
+  .dp-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px; font-style: italic; opacity: 0.6; }
   .log-header {
     padding: 8px 14px;
     border-bottom: 1px solid var(--border);
@@ -865,14 +920,15 @@
     <!-- Global Bar -->
     <div id="globalbar">
       <div class="globalbar-left">
-        <button class="icon-btn" onclick="toggleSidebar()" id="sidebar-toggle" title="사이드바 토글">
-          <svg id="sidebar-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+        <button class="icon-btn" onclick="toggleSidebar()" id="sidebar-toggle" title="사이드바 토글">접기</button>
         <span class="globalbar-title">주성치와 함께하는 디자인 여행</span>
       </div>
       <div class="globalbar-right">
+        <div class="ds-sync-pill" onclick="openSysChangeModal()" style="cursor:pointer">
+          <span style="font-size:15px;line-height:1;flex-shrink:0;opacity:0.7">⚙</span>
+          <span class="ds-sync-label">시스템</span>
+          <span class="ds-sync-time" id="sys-change-time"></span>
+        </div>
         <div class="ds-sync-pill" onclick="openScreenSyncModal()" style="cursor:pointer">
           <img src="assets/screensync.png" alt="screen-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
           <span class="ds-sync-label">이혼대법</span>
@@ -894,10 +950,6 @@
           <div class="project-meta-row" id="project-meta-row"></div>
         </div>
         <div class="project-header-actions">
-          <button class="btn" onclick="openDirectorModal(activeProjectId)" style="display:flex;align-items:center;gap:6px;padding:6px 12px">
-            <img src="assets/director.png" alt="director" style="width:16px;height:16px;image-rendering:pixelated;flex-shrink:0;">
-            감독 대화
-          </button>
           <button class="btn" onclick="openModal('modal-overview')">개요 보기</button>
         </div>
       </div>
@@ -907,14 +959,21 @@
     <div id="content">
       <div id="kanban"></div>
       <div id="log-area">
-        <div class="log-header">
-          <div class="log-header-title">
-            실행 로그
-            <span class="log-count" id="log-count"></span>
+        <div id="log-panel">
+          <div class="log-header">
+            <div class="log-header-title">
+              실행 로그
+              <span class="log-count" id="log-count"></span>
+            </div>
           </div>
-          <button class="btn" onclick="openModal('modal-log')">전체 보기</button>
+          <div class="log-body" id="log-body"></div>
         </div>
-        <div class="log-body" id="log-body"></div>
+        <div id="director-panel">
+          <div class="log-header">
+            <div class="log-header-title">감독 대화</div>
+          </div>
+          <div class="log-body" id="director-inline-body"></div>
+        </div>
       </div>
     </div>
 
@@ -1013,6 +1072,20 @@
   </div>
 </div>
 
+<!-- Modal: System Change History -->
+<div class="modal-backdrop" id="modal-syschange">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span style="font-size:22px;line-height:1;flex-shrink:0;opacity:0.8">⚙</span>
+        시스템 변경 내역
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-syschange')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-syschange-body"></div>
+  </div>
+</div>
+
 <!-- Modal: Image Viewer -->
 <div class="modal-backdrop" id="modal-image">
   <img src="assets/keyvisual.png" alt="키비주얼" onclick="closeModal('modal-image')">
@@ -1023,6 +1096,7 @@
 // ── Data ──────────────────────────────────────────────────────────────────────
 let GLOBAL = { dsSyncLastAt: '—' };
 let PROJECTS = [];
+let SYSTEM_CHANGES = [];
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeProjectId = null;
@@ -1031,11 +1105,9 @@ let activeModal = null;
 // ── Sidebar Toggle ────────────────────────────────────────────────────────────
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const arrow = document.getElementById('sidebar-arrow');
+  const btn = document.getElementById('sidebar-toggle');
   sidebar.classList.toggle('collapsed');
-  const collapsed = sidebar.classList.contains('collapsed');
-  arrow.style.transform = collapsed ? 'rotate(180deg)' : '';
-  arrow.style.transition = 'transform 0.22s ease';
+  btn.textContent = sidebar.classList.contains('collapsed') ? '펼치기' : '접기';
 }
 
 // ── Column config ─────────────────────────────────────────────────────────────
@@ -1058,6 +1130,7 @@ function statusText(status) {
     error:       ['var(--accent-red)',    '오류'],
     completed:   ['var(--accent-green)',  '완료'],
     in_progress: ['var(--accent-blue)',   '진행 중'],
+    design_done: ['var(--accent-amber)',  '설계 완료'],
   };
   const [color, label] = map[status] || ['var(--text-muted)', status];
   return `<span style="color:${color};font-size:11px;font-weight:600;letter-spacing:0.03em">${label}</span>`;
@@ -1072,6 +1145,7 @@ function getStatusBadge(status) {
     completed:   ['badge-green',  '완료'],
     in_progress: ['badge-blue',   '진행 중'],
     draft:       ['badge-gray',   '준비'],
+    design_done: ['badge-amber',  '설계 완료'],
   };
   const [cls, label] = map[status] || ['badge-gray', status];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -1084,24 +1158,28 @@ function getLogClass(type) {
 
 function getAgentBadge(agent) {
   const m = {
-    planner:'badge-blue',
-    'validator-plan':'badge-amber', 'plan-validator':'badge-amber',
-    'ux-improver':'badge-cyan',
-    'ui-designer':'badge-green',
-    validator:'badge-yellow',
-    builder:'badge-purple', 'figma-builder':'badge-purple',
-    reviewer:'badge-violet', 'figma-reviewer':'badge-violet',
-    director:'badge-gray'
+    planner:          'badge-blue',
+    'validator-plan': 'badge-yellow', 'plan-validator': 'badge-yellow',
+    validator:        'badge-yellow',
+    'ux-improver':    'badge-cyan',
+    'ui-designer':    'badge-green',
+    builder:          'badge-purple', 'figma-builder': 'badge-purple',
+    reviewer:         'badge-violet', 'figma-reviewer': 'badge-violet',
+    director:         'badge-gray'
   };
   return m[agent] || 'badge-gray';
 }
 
 function getAgentLabel(agent) {
   const m = {
-    'validator-plan': 'validator·plan',
-    'plan-validator': 'validator·plan',
-    'figma-builder':  'builder',
-    'figma-reviewer': 'reviewer',
+    planner:          'planner',
+    'validator-plan': 'validator', 'plan-validator': 'validator',
+    validator:        'validator',
+    'ux-improver':    'ux-improver',
+    'ui-designer':    'ui-designer',
+    builder:          'builder',  'figma-builder':  'builder',
+    reviewer:         'reviewer', 'figma-reviewer': 'reviewer',
+    director:         'director',
   };
   return m[agent] || agent;
 }
@@ -1115,11 +1193,9 @@ function displayDuration(a) {
 }
 
 function getProgressBadge(p) {
-  if (!p || !Array.isArray(p.agents)) return '';
-  const done = id => p.agents.some(a => a.id === id && a.status === 'done');
-  if (done('builder') || done('reviewer')) return '<span class="badge badge-purple">생성</span>';
-  if (done('ux-improver'))                 return '<span class="badge badge-cyan">설계</span>';
-  if (done('planner'))                     return '<span class="badge badge-blue">기획</span>';
+  if (!p) return '';
+  if (p.mode?.startsWith('생성 모드')) return '<span class="badge badge-purple">생성</span>';
+  if (p.mode?.startsWith('설계 모드')) return '<span class="badge badge-cyan">설계</span>';
   return '';
 }
 
@@ -1256,7 +1332,7 @@ function closeModal(id) {
   if (activeModal === id) activeModal = null;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && activeModal) closeModal(activeModal); });
-['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-screensync','modal-director','modal-image'].forEach(id => {
+['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-screensync','modal-director','modal-image','modal-syschange'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
 });
 
@@ -1306,6 +1382,7 @@ async function loadData() {
 
     DS_SYNC_HISTORY     = allEntries.filter(e => e.type === 'ds-sync').reverse();
     SCREEN_SYNC_HISTORY = allEntries.filter(e => e.type === 'screen-sync').reverse();
+    SYSTEM_CHANGES      = allEntries.filter(e => e.type === 'system-change').reverse();
     const history       = allEntries.filter(e => e.id && Array.isArray(e.agents)).reverse();
 
     PROJECTS = [...(liveSession ? [liveSession] : []), ...history];
@@ -1313,6 +1390,7 @@ async function loadData() {
     // 최근 실행 시각
     if (DS_SYNC_HISTORY.length > 0)     GLOBAL.dsSyncLastAt     = DS_SYNC_HISTORY[0].at;
     if (SCREEN_SYNC_HISTORY.length > 0) GLOBAL.screenSyncLastAt = SCREEN_SYNC_HISTORY[0].at;
+    if (SYSTEM_CHANGES.length > 0)      GLOBAL.sysChangeLastAt  = SYSTEM_CHANGES[0].at;
 
     // 활성 프로젝트 초기화
     if (PROJECTS.length > 0 && !PROJECTS.find(p => p.id === activeProjectId)) {
@@ -1329,8 +1407,35 @@ async function loadData() {
 
 // ── Global Bar ────────────────────────────────────────────────────────────────
 function renderGlobalBar() {
-  document.getElementById('ds-sync-time').textContent    = GLOBAL.dsSyncLastAt    || '—';
+  document.getElementById('sys-change-time').textContent  = GLOBAL.sysChangeLastAt  || '—';
   document.getElementById('screen-sync-time').textContent = GLOBAL.screenSyncLastAt || '—';
+  document.getElementById('ds-sync-time').textContent     = GLOBAL.dsSyncLastAt     || '—';
+}
+
+// ── System Change Modal ───────────────────────────────────────────────────────
+function openSysChangeModal() {
+  const body = document.getElementById('modal-syschange-body');
+  if (SYSTEM_CHANGES.length === 0) {
+    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">시스템 변경 내역 없음</div>`;
+  } else {
+    const layerColor = { agent:'badge-blue', skill:'badge-cyan', docs:'badge-green', dashboard:'badge-amber', director:'badge-purple' };
+    body.innerHTML = `
+      <div class="modal-log-list">
+        ${SYSTEM_CHANGES.map((e, i) => `
+          <div class="modal-log-item" style="${i === 0 ? 'color:var(--text-primary)' : ''}">
+            <span class="modal-log-ts">${e.at || '—'}</span>
+            <div class="modal-log-text">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+                ${e.layer ? `<span class="badge ${layerColor[e.layer] || 'badge-gray'} badge-sm">${e.layer}</span>` : ''}
+                ${e.target ? `<code style="font-size:11.5px;color:var(--accent-cyan);background:var(--bg-elevated);border:1px solid var(--border);border-radius:2px;padding:1px 5px">${escHtml(e.target)}</code>` : ''}
+              </div>
+              <div style="font-size:12.5px;color:var(--text-secondary)">${escHtml(e.summary || '시스템 변경')}</div>
+              ${e.impact ? `<div style="margin-top:3px;font-size:11.5px;color:var(--text-muted)">${escHtml(e.impact)}</div>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+  openModal('modal-syschange');
 }
 
 // ── Screen Sync Modal ─────────────────────────────────────────────────────────
@@ -1381,7 +1486,7 @@ function openDirectorModal(projectId) {
         ${dirLogs.map(l => `
           <div style="display:grid;grid-template-columns:60px auto 1fr;align-items:baseline;gap:8px;padding:3px 0;font-size:12px">
             <span style="color:var(--text-muted);font-family:'Pretendard',monospace">${l.ts}</span>
-            <span class="badge badge-gold" style="font-size:9.5px;padding:2px 6px;min-width:auto">감독</span>
+            <span class="badge badge-gray badge-sm">director</span>
             <span style="color:var(--text-secondary);line-height:1.55">${escHtml(l.msg)}</span>
           </div>`).join('')}
       </div>
@@ -1398,7 +1503,7 @@ function openDirectorModal(projectId) {
             <div style="padding:10px 12px;background:var(--bg-base);border-radius:var(--radius-sm);border-left:2px solid ${(COL_CONFIG[a.id]||{}).accent||'var(--border)'}">
               <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
                 ${cfg.icon ? `<img src="${cfg.icon}" style="width:16px;height:16px;image-rendering:pixelated;flex-shrink:0">` : ''}
-                <span class="badge ${getAgentBadge(a.id)}" style="font-size:10px">${a.name}</span>
+                <span class="badge ${getAgentBadge(a.id)} badge-sm">${getAgentLabel(a.id) || a.name}</span>
                 ${(a.executionDuration || a.duration) ? `<span style="font-size:11px;color:var(--text-muted);margin-left:auto">${displayDuration(a)}</span>` : ''}
               </div>
               <div style="font-size:13px;color:var(--text-secondary);line-height:1.65">${escHtml(a.summary)}</div>
@@ -1437,8 +1542,8 @@ function renderProjectHeader(p) {
   document.getElementById('project-name-row').innerHTML = `
     <span class="project-name">${escHtml(p.name)}</span>
     ${getStatusBadge(p.status)}
+    ${getProgressBadge(p)}
     ${p.rollback ? '<span class="badge badge-amber">롤백</span>' : ''}
-    <span class="badge ${p.mode === '생성 모드' ? 'badge-purple' : 'badge-blue'}">${p.mode === '생성 모드' ? '생성' : '설계'}</span>
   `;
   const parts = [];
   parts.push(`<span class="project-meta-item"><span class="label">ID</span> <span style="cursor:pointer" onclick="copyQuestId('${p.id}', event)">${p.id}</span></span>`);
@@ -1449,9 +1554,47 @@ function renderProjectHeader(p) {
     parts.join('<span style="color:var(--border);margin:0 12px">·</span>');
 }
 
+// ── Validator Output Parser ───────────────────────────────────────────────────
+function parseValidatorOutput(output) {
+  if (!output) return null;
+  try {
+    const parsed = JSON.parse(output);
+    if (parsed.result) return parsed;
+  } catch(e) {}
+  // Extract JSON object embedded in markdown text
+  const jsonMatch = output.match(/\{[\s\S]*?"result"\s*:\s*"(PASS|FAIL)"[\s\S]*?\}/);
+  if (jsonMatch) {
+    try { return JSON.parse(jsonMatch[0]); } catch(e) {}
+  }
+  // Last resort: find result keyword in text
+  const passMatch = output.match(/판정[:\s]*(PASS|FAIL)/);
+  if (passMatch) return { result: passMatch[1], blockers: [], warnings: [], notes: [] };
+  const kMatch = output.match(/"result"\s*:\s*"(PASS|FAIL)"/);
+  if (kMatch) return { result: kMatch[1], blockers: [], warnings: [], notes: [] };
+  return null;
+}
+
+function buildValidatorResultBadge(output) {
+  const v = parseValidatorOutput(output);
+  if (!v) return '';
+  const r = v.result;
+  const blockers = (v.blockers || []).length;
+  const warns    = (v.warnings || []).length;
+  const notes    = (v.notes    || []).length;
+  const parts = [
+    blockers > 0 ? `<span class="card-result-blocker">${blockers} BLOCKER</span>` : '',
+    warns    > 0 ? `<span class="card-result-warn">${warns} WARN</span>` : '',
+    notes    > 0 ? `<span class="card-result-note">${notes} NOTE</span>` : '',
+  ].filter(Boolean);
+  const counts = parts.length ? `<span class="card-result-counts">${parts.join(' · ')}</span>` : '';
+  if (r === 'PASS') return `<div class="card-result"><span class="card-result-pass">PASS</span>${counts}</div>`;
+  if (r === 'FAIL') return `<div class="card-result"><span class="card-result-fail">FAIL</span>${counts}</div>`;
+  return '';
+}
+
 // ── Kanban helpers ────────────────────────────────────────────────────────────
 function buildAgentCard(projectId, a, modeLabel) {
-  const modeColors = { plan: '#c96b1a', ui: '#c9a020' };
+  const modeColors = { plan: 'var(--text-muted)', ui: 'var(--text-muted)' };
   const modeColor  = modeColors[modeLabel] || 'var(--text-muted)';
   const modeTag = modeLabel
     ? `<span style="font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:${modeColor};margin-right:4px">${modeLabel}</span>`
@@ -1471,7 +1614,7 @@ function buildAgentCard(projectId, a, modeLabel) {
       <div class="builder-figma-detail">
         ${a.figma.file} / ${a.figma.page}<br>
         frame: ${a.figma.frame}<br>
-        node: <span style="color:var(--accent-purple)">${a.figma.nodeId}</span>
+        node: ${a.figma.nodeId}
       </div>
     </div>` : '';
 
@@ -1490,6 +1633,9 @@ function buildAgentCard(projectId, a, modeLabel) {
       </div>
     </div>`).join('');
 
+  const isValidator = a.id === 'validator-plan' || a.id === 'validator' || a.id === 'plan-validator';
+  const validatorBadge = isValidator ? buildValidatorResultBadge(a.output) : '';
+
   return attemptCards + `
     <div class="kanban-card status-${a.status}" onclick="openAgentModal('${projectId}','${a.id}')">
       <div class="card-status-row">
@@ -1497,7 +1643,11 @@ function buildAgentCard(projectId, a, modeLabel) {
         ${hasAttempts ? `<span class="attempt-num">${a.history.length}회차</span>` : ''}
         ${a.notes ? `<span style="color:var(--accent-amber);font-size:11px;margin-left:auto" title="${a.notes.replace(/"/g,'&quot;')}">⚠</span>` : ''}
       </div>
-      <div class="card-desc">${a.summary || '—'}</div>
+      ${a.summary ? `<div class="card-summary-line">${escHtml(a.summary)}</div>` : ''}
+      ${validatorBadge}
+      ${a.output
+        ? `<div class="card-thinking">${escHtml(a.output)}</div>`
+        : `<div class="card-desc" style="opacity:0.35;font-style:italic">—</div>`}
       ${figmaBlock}
       <div class="card-meta">
         <span class="card-time">${a.startedAt || ''}</span>
@@ -1517,30 +1667,19 @@ function renderKanban(p) {
     let duration = '—';
 
     if (colId === 'validator') {
-      // validator 컬럼: plan 모드 카드 + ui 모드 카드 두 장
       const aPlan = agentMap['validator-plan'];
       const aUi   = agentMap['validator'];
-
-      const planCard = aPlan ? buildAgentCard(p.id, aPlan, 'plan') : '';
-      const uiCard   = aUi   ? buildAgentCard(p.id, aUi,   'ui')  : '';
-
-      cardHtml = planCard + uiCard || `<div class="empty-col">이 퀘스트에서 사용 안 함</div>`;
+      const planActive = aPlan && aPlan.status !== 'idle';
+      const uiActive   = aUi   && aUi.status   !== 'idle';
+      cardHtml = (planActive ? buildAgentCard(p.id, aPlan, 'plan') : '') +
+                 (uiActive   ? buildAgentCard(p.id, aUi,   'ui')   : '');
       const running = (aPlan?.status === 'running') || (aUi?.status === 'running');
-      duration = running ? '...' : '—';
+      duration = running ? '...' : (aUi?.duration || aPlan?.duration || '—');
 
     } else {
       const a = agentMap[colId];
-      duration = a ? (a.executionDuration ? displayDuration(a) : (a.duration || (a.status === 'running' ? '...' : '—'))) : '—';
-
-      if (!a) {
-        cardHtml = `<div class="empty-col">이 퀘스트에서 사용 안 함</div>`;
-      } else if (a.status === 'idle') {
-        cardHtml = `
-          <div class="kanban-card status-idle" onclick="openAgentModal('${p.id}','${a.id}')">
-            <div class="card-status-row">${statusText(a.status)}</div>
-            <div class="card-desc" style="font-style:italic;opacity:0.5">소환 대기 중...</div>
-          </div>`;
-      } else {
+      if (a && a.status !== 'idle') {
+        duration = a.executionDuration ? displayDuration(a) : (a.duration || (a.status === 'running' ? '...' : '—'));
         cardHtml = buildAgentCard(p.id, a, null);
       }
     }
@@ -1561,16 +1700,38 @@ function renderKanban(p) {
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
 function renderLogs(p) {
-  document.getElementById('log-count').textContent = `${p.logs.length}`;
-  document.getElementById('log-body').innerHTML = p.logs.slice().reverse().map((l, ri) => {
-    const origIdx = p.logs.length - 1 - ri;
+  // 실행 로그: 에이전트 실행 이벤트만 (director 제외)
+  const execLogs = (p.logs || []).filter(l => l.agent !== 'director');
+  document.getElementById('log-count').textContent = execLogs.length;
+  document.getElementById('log-body').innerHTML = execLogs.slice().reverse().map((l, ri) => {
+    const origIdx = p.logs.length - 1 - (p.logs.length - 1 - p.logs.lastIndexOf(l));
     return `
-      <div class="log-line ${getLogClass(l.type)}" onclick="openLogDetailModal('${p.id}',${origIdx})">
+      <div class="log-line ${getLogClass(l.type)}">
         <span class="log-ts">${l.ts}</span>
         <span class="log-agent"><span class="badge ${getAgentBadge(l.agent)}">${getAgentLabel(l.agent)}</span></span>
-        <span class="log-msg">${l.msg}</span>
+        <span class="log-msg">${escHtml(l.msg)}</span>
       </div>`;
   }).join('');
+}
+
+// ── Director Panel (inline) ───────────────────────────────────────────────────
+function renderDirectorPanel(p) {
+  const el = document.getElementById('director-inline-body');
+  if (!el) return;
+
+  const dirLogs = (p.logs || []).filter(l => l.agent === 'director');
+
+  if (dirLogs.length === 0) {
+    el.innerHTML = `<div class="dp-empty">대화 내역 없음</div>`;
+    return;
+  }
+
+  el.innerHTML = dirLogs.map(l => `
+    <div class="dp-director-msg">
+      <span class="dp-ts">${l.ts}</span>
+      <span class="badge badge-gray badge-sm dp-badge" style="flex-shrink:0">director</span>
+      <span class="dp-msg">${escHtml(l.msg)}</span>
+    </div>`).join('');
 }
 
 // ── Render Project ────────────────────────────────────────────────────────────
@@ -1580,6 +1741,7 @@ function renderProject() {
   renderProjectHeader(p);
   renderKanban(p);
   renderLogs(p);
+  renderDirectorPanel(p);
 }
 
 function renderEmptyState() {
@@ -1589,7 +1751,6 @@ function renderEmptyState() {
 
   document.getElementById('kanban').innerHTML = Object.keys(COL_CONFIG).map(colId => {
     const cfg = COL_CONFIG[colId];
-    const bodyHtml = `<div class="empty-col" style="opacity:0.35">대기 중</div>`;
     return `
       <div class="kanban-col ${colId === 'builder' ? 'col-builder' : ''}" style="--col-accent:${cfg.accent}">
         <div class="kanban-col-header">
@@ -1599,13 +1760,15 @@ function renderEmptyState() {
           </div>
           <span class="kanban-col-duration">—</span>
         </div>
-        <div class="kanban-col-body">${bodyHtml}</div>
+        <div class="kanban-col-body"></div>
       </div>`;
   }).join('');
 
   document.getElementById('log-count').textContent = '0';
   document.getElementById('log-body').innerHTML =
     `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">작업 기록이 없습니다</div>`;
+  document.getElementById('director-inline-body').innerHTML =
+    `<div class="dp-empty">대화 내역 없음</div>`;
 }
 
 // ── Agent Modal ───────────────────────────────────────────────────────────────
@@ -1669,7 +1832,7 @@ function renderBuilderModal(a) {
         <div class="figma-result-cell"><div class="frc-label">파일</div><div class="frc-value">${f.file}</div></div>
         <div class="figma-result-cell"><div class="frc-label">페이지</div><div class="frc-value">${f.page}</div></div>
         <div class="figma-result-cell"><div class="frc-label">프레임</div><div class="frc-value">${f.frame}</div></div>
-        <div class="figma-result-cell"><div class="frc-label">노드 ID</div><div class="frc-value" style="color:var(--accent-purple)">${f.nodeId}</div></div>
+        <div class="figma-result-cell"><div class="frc-label">노드 ID</div><div class="frc-value">${f.nodeId}</div></div>
         <div class="figma-result-cell"><div class="frc-label">위치 (x, y)</div><div class="frc-value">${f.x}, ${f.y}</div></div>
         <div class="figma-result-cell"><div class="frc-label">소환 화면 수</div><div class="frc-value">${f.screens}개</div></div>
       </div>
