@@ -153,13 +153,22 @@
   }
   .project-item.active .project-item-name { color: var(--text-primary); }
   .project-item-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .project-item-brief {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
   .project-item-id {
     font-size: 10.5px;
-    color: var(--text-secondary);
-    margin-top: 3px;
+    color: var(--text-muted);
     margin-bottom: 6px;
     cursor: pointer;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -265,7 +274,7 @@
     font-size: 16px;
     line-height: 1;
   }
-  #sidebar-toggle { padding: 0 6px; font-size: 12px; white-space: nowrap; }
+  #sidebar-toggle { width: auto; padding: 0 12px; font-size: 12px; white-space: nowrap; }
   .icon-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); color: var(--text-primary); }
 
   /* ── Project Header ─── */
@@ -285,8 +294,14 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
     flex-wrap: wrap;
+  }
+  .project-brief {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.4;
   }
   .project-quest-mark {
     font-size: 11px;
@@ -545,15 +560,16 @@
   /* ── Director Panel items ─── */
   .dp-director-msg {
     display: grid;
-    grid-template-columns: 54px 52px 1fr;
+    grid-template-columns: 62px 100px 1fr;
     align-items: baseline;
-    gap: 0 6px;
-    padding: 4px 14px;
+    gap: 0 8px;
+    padding: 3px 14px;
     border-bottom: 1px solid var(--border-subtle);
+    line-height: 1.55;
   }
-  .dp-ts { font-size: 11px; color: var(--text-muted); font-family: 'Pretendard', sans-serif; }
-  .dp-badge { flex-shrink: 0; }
-  .dp-msg { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; font-family: 'Pretendard', sans-serif; }
+  .dp-ts { color: var(--text-muted); }
+  .dp-badge { flex-shrink: 0; overflow: hidden; }
+  .dp-msg { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
   .dp-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px; font-style: italic; opacity: 0.6; }
   .log-header {
     padding: 8px 14px;
@@ -723,16 +739,16 @@
   .modal-log-list { display: flex; flex-direction: column; }
   .modal-log-item {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0 20px;
-    font-size: 13px;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-subtle);
+    grid-template-columns: 62px 1fr;
+    gap: 0 8px;
     font-size: 12.5px;
+    align-items: baseline;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    line-height: 1.55;
   }
   .modal-log-item:last-child { border-bottom: none; }
-  .modal-log-ts   { color: var(--text-muted); width: 68px; flex-shrink: 0; }
+  .modal-log-ts   { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
   .modal-log-text { color: var(--text-secondary); min-width: 0; }
   .modal-log-item.log-rollback .modal-log-text { color: var(--accent-amber); }
   .modal-log-item.log-complete .modal-log-text { color: var(--accent-green); }
@@ -924,20 +940,18 @@
         <span class="globalbar-title">주성치와 함께하는 디자인 여행</span>
       </div>
       <div class="globalbar-right">
-        <div class="ds-sync-pill" onclick="openSysChangeModal()" style="cursor:pointer">
-          <span style="font-size:15px;line-height:1;flex-shrink:0;opacity:0.7">⚙</span>
-          <span class="ds-sync-label">시스템</span>
-          <span class="ds-sync-time" id="sys-change-time"></span>
+        <div class="ds-sync-pill" onclick="openDsSyncModal()" style="cursor:pointer">
+          <img src="assets/dssync.png" alt="ds-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
+          <span class="ds-sync-label">무적풍화륜</span>
+          <span class="ds-sync-time" id="ds-sync-time"></span>
         </div>
         <div class="ds-sync-pill" onclick="openScreenSyncModal()" style="cursor:pointer">
           <img src="assets/screensync.png" alt="screen-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
           <span class="ds-sync-label">이혼대법</span>
           <span class="ds-sync-time" id="screen-sync-time"></span>
         </div>
-        <div class="ds-sync-pill" onclick="openDsSyncModal()" style="cursor:pointer">
-          <img src="assets/dssync.png" alt="ds-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
-          <span class="ds-sync-label">무적풍화륜</span>
-          <span class="ds-sync-time" id="ds-sync-time"></span>
+        <div class="ds-sync-pill" onclick="openSysChangeModal()" style="cursor:pointer">
+          <span class="ds-sync-label">시스템</span>
         </div>
       </div>
     </div>
@@ -947,6 +961,7 @@
       <div class="project-header-row">
         <div class="project-header-left">
           <div class="project-name-row" id="project-name-row"></div>
+          <div class="project-brief" id="project-brief"></div>
           <div class="project-meta-row" id="project-meta-row"></div>
         </div>
         <div class="project-header-actions">
@@ -1346,7 +1361,8 @@ function renderSidebar() {
   document.getElementById('project-list').innerHTML = PROJECTS.map(p => `
     <div class="project-item ${p.id === activeProjectId ? 'active' : ''}" onclick="selectProject('${p.id}')">
       <div class="project-item-name">${escHtml(p.name)}</div>
-      <div class="project-item-id" onclick="copyQuestId('${p.id}', event)" title="클릭하여 복사">${p.id}</div>
+      ${p.brief ? `<div class="project-item-brief">${escHtml(p.brief)}</div>` : ''}
+      <div class="project-item-id" onclick="copyQuestId('${p.id}', event)" title="클릭하여 복사">#${p.id}</div>
       <div class="project-item-meta">
         ${getStatusBadge(p.status)}
         ${getProgressBadge(p)}
@@ -1407,7 +1423,6 @@ async function loadData() {
 
 // ── Global Bar ────────────────────────────────────────────────────────────────
 function renderGlobalBar() {
-  document.getElementById('sys-change-time').textContent  = GLOBAL.sysChangeLastAt  || '—';
   document.getElementById('screen-sync-time').textContent = GLOBAL.screenSyncLastAt || '—';
   document.getElementById('ds-sync-time').textContent     = GLOBAL.dsSyncLastAt     || '—';
 }
@@ -1418,7 +1433,7 @@ function openSysChangeModal() {
   if (SYSTEM_CHANGES.length === 0) {
     body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">시스템 변경 내역 없음</div>`;
   } else {
-    const layerColor = { agent:'badge-blue', skill:'badge-cyan', docs:'badge-green', dashboard:'badge-amber', director:'badge-purple' };
+    const layerColor = { agent:'badge-blue', skill:'badge-cyan', docs:'badge-green', dashboard:'badge-amber', director:'badge-gray' };
     body.innerHTML = `
       <div class="modal-log-list">
         ${SYSTEM_CHANGES.map((e, i) => `
@@ -1545,8 +1560,10 @@ function renderProjectHeader(p) {
     ${getProgressBadge(p)}
     ${p.rollback ? '<span class="badge badge-amber">롤백</span>' : ''}
   `;
+  const briefEl = document.getElementById('project-brief');
+  if (briefEl) briefEl.textContent = p.brief || '';
   const parts = [];
-  parts.push(`<span class="project-meta-item"><span class="label">ID</span> <span style="cursor:pointer" onclick="copyQuestId('${p.id}', event)">${p.id}</span></span>`);
+  parts.push(`<span class="project-meta-item"><span class="label">ID</span> <span style="cursor:pointer;font-variant-numeric:tabular-nums" onclick="copyQuestId('${p.id}', event)">#${p.id}</span></span>`);
   if (p.startedAt)   parts.push(`<span class="project-meta-item"><span class="label">시작</span> ${p.startedAt}</span>`);
   if (p.completedAt) parts.push(`<span class="project-meta-item"><span class="label">완료</span> ${p.completedAt}</span>`);
   if (p.duration)    parts.push(`<span class="project-meta-item"><span class="label">소요</span> <span class="mono">${p.duration}</span></span>`);
@@ -1729,7 +1746,7 @@ function renderDirectorPanel(p) {
   el.innerHTML = dirLogs.map(l => `
     <div class="dp-director-msg">
       <span class="dp-ts">${l.ts}</span>
-      <span class="badge badge-gray badge-sm dp-badge" style="flex-shrink:0">director</span>
+      <span class="log-agent"><span class="badge badge-gray">director</span></span>
       <span class="dp-msg">${escHtml(l.msg)}</span>
     </div>`).join('');
 }
@@ -1747,6 +1764,8 @@ function renderProject() {
 function renderEmptyState() {
   document.getElementById('project-name-row').innerHTML =
     `<span class="project-name" style="color:var(--text-muted)">작업 없음</span>`;
+  const briefEl = document.getElementById('project-brief');
+  if (briefEl) briefEl.textContent = '';
   document.getElementById('project-meta-row').innerHTML = '';
 
   document.getElementById('kanban').innerHTML = Object.keys(COL_CONFIG).map(colId => {
