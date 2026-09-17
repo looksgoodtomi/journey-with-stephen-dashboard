@@ -1,0 +1,337 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin:0; height:100%; background:#fff; overflow:hidden; }
+  #box { width:100vw; height:100vh; }
+  #hint { position:fixed; left:0; bottom:0; font-family: sans-serif; font-size:12px; color:#888; padding:8px; }
+</style>
+</head>
+<body>
+<div id="box"></div>
+<div id="hint">평소엔 흩어진 채로 천천히 회전 · 커서를 올리면 portfolio 전체가 드러남</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // ==========================================
+  // 여기 두 줄만 바꾸면 다른 문구로 재사용 가능
+  // ==========================================
+  const FRONT_LINES = ['portfolio'];   // 정면에서 읽히는 문구
+  const SIDE_LINES  = ['portfolio'];   // 측면도 같은 문구 — 어느 각도에서 봐도 읽히는 입체 워드마크가 됨
+  const FRONT_FONT_SIZE = 130;
+  const SIDE_FONT_SIZE  = 130;
+  // ==========================================
+
+  const container = document.getElementById('box');
+  const DENSITY_STEP = 3;
+  const CUBE_SIZE = 2.6;           // 겹침을 줄임(기존 3.2) — 큐브끼리 너무 겹쳐서 글자 사이 좁은 틈까지 메워버렸음
+  const VOLUME_MULTIPLIER = 4.0;   // 전체 입자 수를 줄여 밀도를 낮춤 (기존 6.0 — 과밀해서 획끼리 뭉개져 보였음)
+  const Z_DEPTH_SCALE = 1.0;       // 줄이면 측면(ㅇㅁ)의 화면상 폭 자체가 줄어들어 뭉개짐 — 정면 화질과는 무관해서 되돌림
+  const LETTER_GAP_THRESHOLD = DENSITY_STEP * 4; // 같은 줄에서 글자와 글자 사이 빈 공간을 판별하는 기준 x간격
+  const FRONT_LETTER_SPACING = '-6px'; // portfolio(9자) 폭을 살짝만 압축 — 기존 -16px는 r/t/f/i 같은 획이 가는 글자들이 서로 뭉개져 붙어버림
+  const JITTER_AMOUNT = 0.15;      // 글자 인식률을 위해 흔들림을 확 줄임(기존 0.5) — 획 가장자리가 덜 부스러져 보임
+  const GREYSCALE_PALETTE = [0x050505, 0x0a0a0a, 0x101010]; // 회색 편차를 최소화해 거의 순검정에 가깝게 — 알록달록한 노이즈가 글자 인식을 방해했음
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xffffff);
+
+  const camera = new THREE.PerspectiveCamera(15, container.clientWidth / container.clientHeight, 1, 10000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  container.appendChild(renderer.domElement);
+
+  function getCoordsFromText(textArray, fontSize, letterSpacing, lineHeightRatio = 0.55) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200; canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+
+    ctx.filter = 'blur(1px)'; // 안티에일리어싱 정도만 — 값을 키우면 다시 침식된 느낌으로 돌아감
+    ctx.fillStyle = 'black';
+    ctx.font = `700 ${fontSize}px Arial, sans-serif`; // 900 Arial Black은 획이 너무 두꺼워 글자끼리 뭉개짐
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (ctx.letterSpacing !== undefined) ctx.letterSpacing = letterSpacing;
+
+    const lines = Array.isArray(textArray) ? textArray : [textArray];
+    const lineHeight = fontSize * lineHeightRatio;
+    const startY = (canvas.height / 2) - ((lines.length - 1) * lineHeight / 2);
+
+    lines.forEach((line, index) => {
+      ctx.fillText(line, canvas.width / 2, startY + (index * lineHeight));
+    });
+
+    return extractPixels(ctx, canvas.width, canvas.height);
+  }
+
+  function extractPixels(ctx, cWidth, cHeight) {
+    const imgData = ctx.getImageData(0, 0, cWidth, cHeight).data;
+    const coords = [];
+
+    for (let y = 0; y < cHeight; y += DENSITY_STEP) {
+      for (let x = 0; x < cWidth; x += DENSITY_STEP) {
+        const index = (y * cWidth + x) * 4;
+        const r = imgData[index], g = imgData[index + 1], b = imgData[index + 2], alpha = imgData[index + 3];
+
+        // 글자 윤곽을 그대로 살리기 위해 고정 임계값만 사용 (랜덤 드롭아웃·랜덤 임계값 제거)
+        if (alpha > 160 && r < 100 && g < 100 && b < 100) {
+          coords.push({ x: x - cWidth / 2, y: -(y - cHeight / 2) });
+        }
+      }
+    }
+    return coords;
+  }
+
+  function groupByY(coords) {
+    const group = {};
+    coords.forEach(c => {
+      if (!group[c.y]) group[c.y] = [];
+      group[c.y].push(c.x);
+    });
+    return group;
+  }
+
+  function measureBBoxHeight(coords) {
+    if (coords.length === 0) return 0;
+    let minY = Infinity, maxY = -Infinity;
+    coords.forEach(c => { if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y; });
+    return (maxY - minY) + DENSITY_STEP * 2;
+  }
+
+  // textBaseline:'middle'은 폰트의 em박스 기준 중앙일 뿐, 실제 잉크(획)의 중앙이 아니다.
+  // 폰트마다 이 둘의 오차가 달라서, 높이를 맞춰도 두 텍스트의 실제 잉크 중심이 어긋나
+  // 위/아래 한쪽이 여전히 살짝 잘려 보일 수 있다. 실제 잉크 중심을 y=0으로 재정렬한다.
+  // (DENSITY_STEP의 배수로만 이동해야 두 텍스트의 y좌표 격자가 계속 맞아떨어진다.)
+  function centerCoordsY(coords) {
+    if (coords.length === 0) return coords;
+    let minY = Infinity, maxY = -Infinity;
+    coords.forEach(c => { if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y; });
+    const shift = Math.round(((minY + maxY) / 2) / DENSITY_STEP) * DENSITY_STEP;
+    if (shift === 0) return coords;
+    return coords.map(c => ({ x: c.x, y: c.y - shift }));
+  }
+
+  // 정면·측면은 같은 y줄끼리 짝을 지어야 점이 생기므로, 두 텍스트의 실제 픽셀 높이가
+  // 다르면 더 큰 쪽의 남는 영역이 통째로 잘려 보인다. 측면 높이에 정면 폰트 크기를 맞춘다.
+  const sideCoordsRaw = getCoordsFromText(SIDE_LINES, SIDE_FONT_SIZE, FRONT_LETTER_SPACING);
+  const sideHeight = measureBBoxHeight(sideCoordsRaw);
+
+  const frontProbe = getCoordsFromText(FRONT_LINES, FRONT_FONT_SIZE, FRONT_LETTER_SPACING);
+  const frontProbeHeight = measureBBoxHeight(frontProbe);
+  const adjustedFrontFontSize = frontProbeHeight > 0
+    ? FRONT_FONT_SIZE * (sideHeight / frontProbeHeight)
+    : FRONT_FONT_SIZE;
+
+  const frontCoordsRaw = getCoordsFromText(FRONT_LINES, adjustedFrontFontSize, FRONT_LETTER_SPACING);
+
+  const sideCoords  = centerCoordsY(sideCoordsRaw);
+  const frontCoords = centerCoordsY(frontCoordsRaw);
+  const frontRows = groupByY(frontCoords);
+  const sideRows  = groupByY(sideCoords);
+
+  // 같은 줄(y)의 x좌표 목록을 글자 사이 빈틈 기준으로 쪼개서 "글자 덩어리" 배열로 나눈다.
+  // 앞면·옆면을 같은 문구로 렌더링하다 보니, 정렬 없이 줄 전체에서 x/z를 뽑아 짝지으면
+  // 한 글자의 앞면 위치에 완전히 다른 글자의 옆면 깊이가 붙어버린다. 원근 카메라에서는
+  // 이 어긋난 깊이가 화면상 좌우로 밀려나 보여서 글자 획들이 서로 뭉개진 것처럼 보였다.
+  // 글자 덩어리끼리만 짝지으면 깊이 오차가 그 글자 폭 안으로 좁혀져 해결된다.
+  function clusterRow(sortedXs) {
+    if (sortedXs.length === 0) return [];
+    const clusters = [[sortedXs[0]]];
+    for (let i = 1; i < sortedXs.length; i++) {
+      if (sortedXs[i] - sortedXs[i - 1] > LETTER_GAP_THRESHOLD) clusters.push([]);
+      clusters[clusters.length - 1].push(sortedXs[i]);
+    }
+    return clusters;
+  }
+
+  const particlesData = [];
+  const allY = new Set([...Object.keys(frontRows), ...Object.keys(sideRows)]);
+
+  allY.forEach(yStr => {
+    const y = parseInt(yStr);
+    const xs = (frontRows[yStr] || []).slice().sort((a, b) => a - b);
+    const zs = (sideRows[yStr] || []).slice().sort((a, b) => a - b);
+    if (xs.length === 0 || zs.length === 0) return;
+
+    const xClusters = clusterRow(xs);
+    const zClusters = clusterRow(zs);
+    const clusterCount = Math.min(xClusters.length, zClusters.length);
+
+    for (let ci = 0; ci < clusterCount; ci++) {
+      const cxs = xClusters[ci];
+      const czs = zClusters[ci];
+
+      // 두 축 중 더 좁은 쪽(같은 글자 안에서) 기준으로 개수를 정한다. max(넓은 쪽) 기준으로
+      // 뽑으면 좁은 쪽 범위(예: 내려긋는 획처럼 얇은 부분)에 그 많은 입자가 억지로 욱여넣어져서
+      // 그 지점만 새까맣게 뭉친다. 항상 좁은 쪽 폭만큼만 채워서 밀도가 고르게 유지되게 한다.
+      const count = Math.min(cxs.length, czs.length) * VOLUME_MULTIPLIER;
+
+      for (let i = 0; i < count; i++) {
+        const jitterX = (Math.random() - 0.5) * JITTER_AMOUNT * DENSITY_STEP;
+        const jitterY = (Math.random() - 0.5) * JITTER_AMOUNT * DENSITY_STEP;
+        const jitterZ = (Math.random() - 0.5) * JITTER_AMOUNT * DENSITY_STEP;
+        const rx = cxs[Math.floor(Math.random() * cxs.length)] + jitterX;
+        const rz = czs[Math.floor(Math.random() * czs.length)] + jitterZ;
+        particlesData.push({ x: rx, y: y + jitterY, z: rz * Z_DEPTH_SCALE });
+      }
+    }
+  });
+
+  const geometry = new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE).toNonIndexed();
+  const colors = new Float32Array(geometry.attributes.position.count * 3);
+
+  for (let i = 0; i < geometry.attributes.position.count; i += 6) {
+    const faceColor = new THREE.Color(GREYSCALE_PALETTE[Math.floor(Math.random() * GREYSCALE_PALETTE.length)]);
+    for (let j = 0; j < 6; j++) {
+      colors[(i + j) * 3] = faceColor.r; colors[(i + j) * 3 + 1] = faceColor.g; colors[(i + j) * 3 + 2] = faceColor.b;
+    }
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  function generateNoiseTexture(size) {
+    const data = new Uint8Array(size * size * 4);
+    for (let i = 0; i < size * size * 4; i += 4) {
+      const value = 170 + Math.random() * 85; // 대비를 줄임(기존 0~255) — 큐브 면이 검게/희게 튀지 않아 글자가 더 또렷함
+      data[i] = data[i + 1] = data[i + 2] = value; data[i + 3] = 255;
+    }
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    texture.needsUpdate = true; texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(10, 10);
+    return texture;
+  }
+
+  const material = new THREE.MeshBasicMaterial({
+    vertexColors: true, map: generateNoiseTexture(32), transparent: false, opacity: 1.0,
+  });
+
+  const mesh = new THREE.InstancedMesh(geometry, material, particlesData.length);
+  const dummy = new THREE.Object3D();
+
+  // 마우스로 흩어졌다가 글자로 모이는 애니메이션을 위해, 큐브별 원래 위치(home)와
+  // 지금 화면에 그려지는 위치(current)를 따로 둔다. 회전값(rot)도 매 프레임 다시 뽑지 않고
+  // 한 번 정해서 고정한다 — 안 그러면 프레임마다 큐브가 미세하게 떨려 보인다.
+  const homePositions = particlesData.map(p => new THREE.Vector3(p.x, p.y, p.z));
+  const fixedRotations = particlesData.map(() => ({
+    x: Math.random() * 0.03 - 0.015, y: Math.random() * 0.03 - 0.015, z: Math.random() * 0.03 - 0.015,
+  }));
+
+  // ── 기본은 흩어진 상태, 커서를 올리면 전체 글자가 모여서 드러남 ──────────────
+  const EXPLODE_DISTANCE = 320;  // 평소 흩어져 있는 최대 거리(로컬 단위) — 랜덤 거리의 상한
+  const POSITION_EASE = 0.15;    // 각 큐브가 목표 위치로 따라가는 속도
+  const ACTIVATE_EASE   = 0.1;   // 커서를 올렸을 때 글자로 모이는 속도
+  const DEACTIVATE_EASE = 0.05;  // 커서를 뗐을 때 흩어지는 속도(천천히, 잔상처럼)
+  let pointerActive = false; // 커서가 박스 위에 있는지
+  const activation = particlesData.map(() => 0); // 큐브별 "글자 위치로 모인 정도" (0=흩어짐, 1=완전히 모임)
+
+  // 큐브마다 흩어질 방향과 거리를 완전 랜덤하게 뽑아 고정해둔다.
+  // (기존엔 "중심→자기 위치" 방향으로만 밀어내서 글자 모양이 그대로 확대된 것처럼
+  // 고르게 퍼져 보였다. 방향을 구면 위에서 균일하게 무작위로, 거리도 개별로 다르게
+  // 뽑아서 뭉치는 곳과 멀리 튀는 곳이 섞인 불규칙한 퍼짐을 만든다.)
+  const explodeOffsets = homePositions.map(() => {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1); // 구면 위에 균일 분포시키기 위한 보정
+    const dir = new THREE.Vector3(
+      Math.sin(phi) * Math.cos(theta),
+      Math.sin(phi) * Math.sin(theta),
+      Math.cos(phi)
+    );
+    const distance = EXPLODE_DISTANCE * (0.25 + Math.random() * 1.5); // 개별 거리 랜덤화 + 상한 확장
+    return dir.multiplyScalar(distance);
+  });
+
+  // 시작 상태 = 흩어진 상태(home + offset). 마우스가 오면 home으로 모인다.
+  const currentPositions = homePositions.map((home, i) => home.clone().add(explodeOffsets[i]));
+
+  for (let i = 0; i < particlesData.length; i++) {
+    dummy.position.copy(currentPositions[i]);
+    dummy.rotation.set(fixedRotations[i].x, fixedRotations[i].y, fixedRotations[i].z);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+  }
+
+  const group = new THREE.Group();
+  group.add(mesh);
+  scene.add(group);
+
+  container.addEventListener('mouseenter', () => { pointerActive = true; });
+  container.addEventListener('mouseleave', () => { pointerActive = false; });
+  container.addEventListener('touchstart', () => { pointerActive = true; }, { passive: true });
+  container.addEventListener('touchend', () => { pointerActive = false; });
+
+  let time = 0;
+  let rotationY = 0;
+  const AUTO_ROTATE_SPEED = 0.00125;  // 흩어져 있을 때 천천히 도는 속도 (기존 0.0025의 절반)
+  const ROTATION_RETURN_EASE = 0.08;  // 모였을 때 정면(0도)으로 정렬되는 속도
+
+  function shortestAngleDiff(target, current) {
+    let diff = (target - current) % (Math.PI * 2);
+    if (diff > Math.PI) diff -= Math.PI * 2;
+    if (diff < -Math.PI) diff += Math.PI * 2;
+    return diff;
+  }
+
+  function updateCameraAndRenderer() {
+    const newWidth = container.clientWidth;
+    const newHeight = container.clientHeight;
+    camera.aspect = newWidth / newHeight;
+    camera.position.z = 1900; // 화면에 보이는 월드 폭은 이 값과 FOV로만 정해지고 컨테이너 픽셀 크기와는 무관하다 — portfolio 전체 폭(약 500유닛)이 좌우 여백을 두고 화면 안에 들어오도록 잡은 값
+    camera.updateProjectionMatrix();
+    renderer.setSize(newWidth, newHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  }
+  updateCameraAndRenderer();
+  window.addEventListener('resize', updateCameraAndRenderer);
+
+  function updateParticles() {
+    // 커서가 박스 위에 있으면 전체 큐브가 글자 위치(home)로 모이고, 벗어나면 다시 흩어진다.
+    const targetActivation = pointerActive ? 1 : 0;
+
+    for (let i = 0; i < homePositions.length; i++) {
+      const home = homePositions[i];
+      const cur = currentPositions[i];
+      const offset = explodeOffsets[i];
+
+      const activationEase = targetActivation > activation[i] ? ACTIVATE_EASE : DEACTIVATE_EASE;
+      activation[i] += (targetActivation - activation[i]) * activationEase;
+
+      const settle = 1 - activation[i];
+      const targetX = home.x + offset.x * settle;
+      const targetY = home.y + offset.y * settle;
+      const targetZ = home.z + offset.z * settle;
+
+      cur.x += (targetX - cur.x) * POSITION_EASE;
+      cur.y += (targetY - cur.y) * POSITION_EASE;
+      cur.z += (targetZ - cur.z) * POSITION_EASE;
+
+      dummy.position.copy(cur);
+      const r = fixedRotations[i];
+      dummy.rotation.set(r.x, r.y, r.z);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    time += 0.003;
+    // 흩어져 있을 때는 계속 천천히 회전하고, 커서가 박스 위에 있는 동안은
+    // 정면(0도)으로 정렬되며 회전이 멈춰서 드러나는 글자가 비뚤어지지 않는다.
+    if (pointerActive) {
+      rotationY += shortestAngleDiff(0, rotationY) * ROTATION_RETURN_EASE;
+    } else {
+      rotationY += AUTO_ROTATE_SPEED;
+    }
+    group.rotation.x = 0;
+    group.rotation.y = rotationY;
+    group.position.y = Math.sin(time * 1.2) * 6;
+    group.updateMatrixWorld();
+
+    updateParticles();
+    renderer.render(scene, camera);
+  }
+  animate();
+});
+</script>
+
+
+</body>
+</html>

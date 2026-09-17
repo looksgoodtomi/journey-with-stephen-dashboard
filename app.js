@@ -6,24 +6,35 @@
 // ── Data ───────────────────────────────────────────────────────────────────────
 let GLOBAL = { dsSyncLastAt: '—' };
 let PROJECTS = [];        // all run entries (session + runs.jsonl / dashboard.jsonl)
-let SYSTEM_CHANGES = [];  // system-change entries
 let DS_SYNC_HISTORY = [];
 let SCREEN_SYNC_HISTORY = [];
-let REQUESTS = [];        // request inbox entries
+let REQUESTS = [];        // 채팅 단위 요청·작업 기록 (logs/requests.jsonl)
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let activeProjectKey  = 'all';  // 'all' | 'monoplex' | 'luckluckluck' | 'system' | 'unknown'
 let activeWorkId      = null;   // selected run/quest id
-let activeDrawer      = null;   // 'inbox' | 'log' | 'system' | null
+let activeDrawer      = null;   // 'log' | 'timeline' | null
+let modalAttempts     = [];     // 현재 열린 에이전트 모달의 회차 목록
+let modalAttemptIdx   = 0;      // 현재 보고 있는 회차 인덱스
+let modalAgentCfg     = {};     // 모달 타이틀용 아이콘/라벨
+let modalAgentName    = '';
 let activeModal       = null;
-let activeLogFilter   = 'all';
+let sidebarCollapsed  = localStorage.getItem('sidebarCollapsed') === 'true';
+const expandedCards   = new Set(); // cards manually expanded by user
+
+// ── Skill library state ──────────────────────────────────────────────────────
+let viewMode      = 'projects'; // 'projects' | 'skills'
+let SKILLS        = [];         // skills/index.json 캐시
+let skillsLoaded  = false;
+let activeSkillId = null;
 
 // ── Project definitions ────────────────────────────────────────────────────────
 const PROJECT_DEFS = [
   { key: 'all',          label: '전체',         color: '#888' },
   { key: 'monoplex',     label: 'Monoplex',     color: '#3b82f6' },
   { key: 'luckluckluck', label: 'LuckLuckLuck', color: '#c9a020' },
-  { key: 'system',       label: 'System',       color: '#3aa8c4' },
+  { key: 'offtable',     label: 'offTABLE',     color: '#3ba55d' },
+  { key: 'ppjct',        label: 'ppjct',        color: '#7c4dff' },
 ];
 
 // ── Column config ──────────────────────────────────────────────────────────────
@@ -37,24 +48,92 @@ const COL_CONFIG = {
 };
 
 // ── Log event type labels ──────────────────────────────────────────────────────
-const LOG_TYPE_LABELS = {
-  agent_start:       '에이전트 시작',
-  agent_complete:    '에이전트 완료',
-  validation_pass:   '검수 통과',
-  validation_fail:   '검수 실패',
-  build_start:       'Figma 빌드 시작',
-  build_complete:    '빌드 완료',
-  build_fail:        '빌드 실패',
-  system_change:     '시스템 변경',
-  user_request:      '사용자 요청',
-  director_decision: 'Director 판단',
-  error:             '오류',
-  rollback:          '롤백',
-};
+
+// ── Sidebar toggle ─────────────────────────────────────────────────────────────
+function applySidebarState() {
+  const app     = document.getElementById('app');
+  const sidebar = document.getElementById('sidebar');
+  const btn     = document.getElementById('sidebar-toggle-btn');
+  if (sidebarCollapsed) {
+    app.classList.add('sidebar-collapsed');
+    sidebar.classList.add('collapsed');
+    if (btn) { btn.textContent = '›'; btn.title = '사이드바 펼치기'; }
+  } else {
+    app.classList.remove('sidebar-collapsed');
+    sidebar.classList.remove('collapsed');
+    if (btn) { btn.textContent = '‹'; btn.title = '사이드바 접기'; }
+  }
+}
+
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed;
+  localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+  applySidebarState();
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// escHtml을 통과한 텍스트 안의 URL(http/https/file)을 클릭 가능한 링크로 변환.
+// 별도 배지/슬롯을 만들지 않고, 로그·요약 등 기존 텍스트 안에 있는 링크만 활성화한다.
+function linkify(escapedHtml) {
+  return escapedHtml.replace(/((?:https?|file):\/\/[^\s<]+)/g,
+    url => `<a href="${url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${url}</a>`);
+}
+function escHtmlLink(s) {
+  return linkify(escHtml(s));
+}
+
+function fmtTs(ts) {
+  if (!ts) return '';
+  const s = String(ts).trim();
+  // 전체 타임스탬프 "YYYY-MM-DD HH:MM(:SS)" → "MM-DD HH:MM", 날짜만 → "MM-DD"
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (m) {
+    const [, , mo, d, h, mi] = m;
+    return (h != null) ? `${mo}-${d} ${h}:${mi}` : `${mo}-${d}`;
+  }
+  // 시간만 "HH:MM(:SS)" → "HH:MM"
+  const t = s.match(/^(\d{2}:\d{2})(?::\d{2})?$/);
+  if (t) return t[1];
+  return s;
+}
+
+function fmtSyncAt(ts) {
+  if (!ts || ts === '—') return '—';
+  return ts;
+}
+
+// 구분자(' · ', ' / ', ' + ', ' | ')로 항목 분리. 공백 없는 경로형(a/b)·노드ID(1:2)는 분리 안 함.
+function splitOutputItems(text) {
+  if (!text) return [];
+  return text.split(/\s+[·/+|]\s+/).map(s => s.trim()).filter(Boolean);
+}
+
+function fmtOutput(text) {
+  if (!text) return '';
+  return escHtmlLink(splitOutputItems(text).join('\n'));
+}
+
+// 문장 종결(마침표+공백)에서 분리. 소수점(0.4)·노드ID(1:2)는 마침표가 아니거나 숫자 뒤라 보존.
+function splitSentences(text) {
+  if (!text) return [];
+  // 한글/영문/괄호 뒤 '마침표+공백'에서만 분리. 소수점(0.4)은 숫자 뒤라 제외.
+  return String(text).split(/(?<=[가-힣A-Za-z)\]]\.)\s+/).map(s => s.trim()).filter(Boolean);
+}
+function renderSentences(text) {
+  if (!text) return '—';
+  return splitSentences(text).map(escHtmlLink).join('<br>');
+}
+
+// 모달용 — 구분점으로 불릿, 각 항목은 문장 단위로 줄바꿈. 항목 1개면 문장만 분리.
+function renderOutputList(text) {
+  if (!text) return '—';
+  const items = splitOutputItems(text);
+  if (items.length <= 1) return renderSentences(text);
+  return `<ul class="output-list">${items.map(it => `<li>${splitSentences(it).map(escHtmlLink).join('<br>')}</li>`).join('')}</ul>`;
 }
 
 function statusText(status) {
@@ -62,11 +141,14 @@ function statusText(status) {
     done:        ['var(--accent-green)',  '완료'],
     running:     ['var(--accent-blue)',   '실행 중'],
     idle:        ['var(--text-muted)',    '대기'],
+    queued:      ['var(--text-muted)',    '대기'],
+    pending:     ['var(--text-muted)',    '대기'],
     rollback:    ['var(--accent-amber)',  '롤백'],
     error:       ['var(--accent-red)',    '오류'],
     completed:   ['var(--accent-green)',  '완료'],
     in_progress: ['var(--accent-blue)',   '진행 중'],
     design_done: ['var(--accent-amber)',  '설계 완료'],
+    paused:      ['var(--accent-amber)',  '일시 중지'],
   };
   const [color, label] = map[status] || ['var(--text-muted)', status];
   return `<span style="color:${color};font-size:11px;font-weight:600;letter-spacing:0.03em">${label}</span>`;
@@ -74,14 +156,18 @@ function statusText(status) {
 
 function getStatusBadge(status) {
   const map = {
-    done:        ['badge-green',  '완료'],
+    done:        ['badge-gray',   '완료'],
     running:     ['badge-blue',   '실행 중'],
     idle:        ['badge-gray',   '대기'],
+    queued:      ['badge-gray',   '대기'],
+    pending:     ['badge-gray',   '대기'],
     rollback:    ['badge-amber',  '롤백'],
-    completed:   ['badge-green',  '완료'],
+    completed:   ['badge-gray',   '완료'],
     in_progress: ['badge-blue',   '진행 중'],
     draft:       ['badge-gray',   '준비'],
     design_done: ['badge-amber',  '설계 완료'],
+    paused:      ['badge-amber',  '일시 중지'],
+    error:       ['badge-red',    '오류'],
   };
   const [cls, label] = map[status] || ['badge-gray', status];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -120,35 +206,21 @@ function getAgentLabel(agent) {
   return m[agent] || agent;
 }
 
-function displayDuration(a) {
-  if (!a) return '—';
-  return a.duration || '';
-}
-
-function getProgressBadge(p) {
-  if (!p) return '';
-  if (p.mode?.startsWith('생성 모드')) return '<span class="badge badge-purple badge-sm">생성</span>';
-  if (p.mode?.startsWith('설계 모드')) return '<span class="badge badge-cyan badge-sm">설계</span>';
-  return '';
-}
 
 function getProjectKey(p) {
   if (!p || !p.project) return 'monoplex';
   const key = p.project.toLowerCase();
-  const known = ['monoplex', 'luckluckluck', 'system'];
+  const known = ['monoplex', 'luckluckluck', 'offtable', 'ppjct'];
   return known.includes(key) ? key : 'monoplex';
 }
 
-function getProjectColor(key) {
-  const def = PROJECT_DEFS.find(d => d.key === key);
-  return def ? def.color : '#888';
-}
 
 function getProjectBadgeClass(key) {
   const m = {
     monoplex:     'badge-blue',
     luckluckluck: 'badge-yellow',
-    system:       'badge-cyan',
+    offtable:     'badge-green',
+    ppjct:        'badge-violet',
     unknown:      'badge-gray',
   };
   return m[key] || 'badge-gray';
@@ -228,7 +300,7 @@ function renderMarkdown(text) {
     const hm = line.match(/^(#{1,3})\s+(.+)$/);
     if (hm) {
       const lvl = hm[1].length;
-      const sz = ['17px','14px','13px'][lvl-1];
+      const sz = ['14px','14px','12px'][lvl-1];
       html += `<div style="font-size:${sz};font-weight:${lvl===1?'700':'600'};color:var(--text-primary);margin:12px 0 5px;${lvl<=2?'padding-bottom:4px;border-bottom:1px solid var(--border)':''}">${inlineMd(hm[2])}</div>`;
       i++; continue;
     }
@@ -265,8 +337,6 @@ function renderMarkdown(text) {
 // ── Modal ──────────────────────────────────────────────────────────────────────
 function openModal(id) {
   if (activeModal && activeModal !== id) closeModal(activeModal);
-  if (id === 'modal-log')      renderLogModal();
-  if (id === 'modal-overview') renderOverviewModal();
   document.getElementById(id).classList.add('open');
   activeModal = id;
 }
@@ -279,8 +349,11 @@ document.addEventListener('keydown', e => {
     if (activeDrawer) { closeDrawer(); return; }
     if (activeModal)  { closeModal(activeModal); return; }
   }
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && activeModal === 'modal-agent' && modalAttempts.length > 1) {
+    navigateAttempt(e.key === 'ArrowLeft' ? -1 : 1);
+  }
 });
-['modal-agent','modal-log','modal-builder','modal-overview','modal-dssync','modal-screensync','modal-director','modal-image','modal-syschange'].forEach(id => {
+['modal-agent','modal-log','modal-builder','modal-dssync','modal-screensync','modal-director','modal-image'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
 });
@@ -336,25 +409,38 @@ async function loadData() {
       sysEntries = all.filter(e => e.type && e.type !== undefined && !e.id);
     }
 
-    // requests.jsonl
-    let reqEntries = [];
+    // requests.jsonl — 채팅 단위 요청·작업 기록
     if (reqRes && reqRes.ok) {
       const txt = await reqRes.text();
-      reqEntries = parseJsonl(txt);
+      REQUESTS = parseJsonl(txt).filter(e => e.at);
     }
 
     // Separate system entries
     DS_SYNC_HISTORY     = sysEntries.filter(e => e.type === 'ds-sync').reverse();
     SCREEN_SYNC_HISTORY = sysEntries.filter(e => e.type === 'screen-sync').reverse();
-    SYSTEM_CHANGES      = sysEntries.filter(e => e.type === 'system-change').reverse();
 
-    REQUESTS = reqEntries.slice().reverse(); // newest first
-    PROJECTS = [...(liveSession ? [liveSession] : []), ...runEntries.slice().reverse()];
+    // 진행 중 세션(session.json)을 무조건 1번에 고정하지 않고, 마지막 활동 시각 기준
+    // 최신순으로 정렬한다 — 안 그러면 "진행 중"이라는 이유만으로 더 오래된 작업이
+    // 최근 작업보다 항상 위에 뜨는 문제가 생긴다.
+    const FULL_TS = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+    function lastActivityAt(p) {
+      const logs = p.logs || [];
+      for (let i = logs.length - 1; i >= 0; i--) {
+        if (FULL_TS.test(logs[i].ts)) return logs[i].ts;
+      }
+      // logs에 온전한 타임스탬프가 없으면(예: 날짜 없이 시간만 기록된 결함 데이터) 건너뛰고 폴백
+      return p.completedAt || p.startedAt || '';
+    }
+    // 세션이 재개되면 같은 id가 session.json(최신)과 runs.jsonl(재개 전 아카이브 스냅샷)에
+    // 동시에 남는다 — live session을 우선하고 동일 id의 archive 스냅샷은 제외해 카드 중복을 막는다.
+    const liveId = liveSession ? liveSession.id : null;
+    PROJECTS = [...(liveSession ? [liveSession] : []), ...runEntries.filter(e => e.id !== liveId)]
+      .sort((a, b) => lastActivityAt(b).localeCompare(lastActivityAt(a)));
 
     // Latest sync times
     if (DS_SYNC_HISTORY.length > 0)     GLOBAL.dsSyncLastAt     = DS_SYNC_HISTORY[0].at;
     if (SCREEN_SYNC_HISTORY.length > 0) GLOBAL.screenSyncLastAt = SCREEN_SYNC_HISTORY[0].at;
-    if (SYSTEM_CHANGES.length > 0)      GLOBAL.sysChangeLastAt  = SYSTEM_CHANGES[0].at;
+
 
     // Active work default: auto-select first if none selected
     if (PROJECTS.length > 0 && !PROJECTS.find(p => p.id === activeWorkId)) {
@@ -390,30 +476,146 @@ function renderSidebarProjects() {
   }
 
   nav.innerHTML = PROJECT_DEFS.map(def => {
-    const isActive = activeProjectKey === def.key;
+    const isActive = viewMode === 'projects' && activeProjectKey === def.key;
     const total   = totalCounts[def.key]   || 0;
     const running = runningCounts[def.key] || 0;
     const badgeClass = running > 0 ? 'sidebar-project-badge has-active' : 'sidebar-project-badge';
     const count = def.key === 'all' ? (total || 0) : (total || 0);
 
     return `
-      <div class="sidebar-project-item${isActive ? ' active' : ''}" onclick="selectProjectKey('${def.key}')">
+      <div class="sidebar-project-item${isActive ? ' active' : ''}" onclick="selectProjectKey('${def.key}')" title="${escHtml(def.label)}">
         <span class="sidebar-project-dot" style="background:${def.color}"></span>
         <span class="sidebar-project-name">${escHtml(def.label)}</span>
         <span class="${badgeClass}">${count}</span>
       </div>`;
   }).join('');
+
+  const skillsBtn = document.getElementById('sidebar-skills-btn');
+  if (skillsBtn) skillsBtn.classList.toggle('active', viewMode === 'skills');
 }
 
 function selectProjectKey(key) {
+  viewMode = 'projects';
   activeProjectKey = key;
   // When switching project, reset work selection to first matching
   const filtered = getFilteredProjects();
   activeWorkId = filtered.length > 0 ? filtered[0].id : null;
+  const titleEl = document.getElementById('work-queue-title');
+  if (titleEl) titleEl.textContent = '작업';
   renderSidebarProjects();
   renderTopBar();
   renderWorkQueue();
   renderWorkDetail();
+}
+
+// ── Skill Library ────────────────────────────────────────────────────────────
+async function openSkillLibrary() {
+  viewMode = 'skills';
+  renderSidebarProjects();
+
+  const titleEl = document.getElementById('work-queue-title');
+  if (titleEl) titleEl.textContent = '스킬 도서관';
+
+  const projEl = document.getElementById('topbar-project');
+  const statsEl = document.getElementById('topbar-stats');
+  if (projEl) projEl.textContent = '스킬 도서관';
+  if (statsEl) statsEl.innerHTML = '';
+
+  if (!skillsLoaded) {
+    try {
+      const res = await fetch('skills/index.json?t=' + Date.now());
+      SKILLS = res.ok ? await res.json() : [];
+    } catch(e) {
+      console.warn('skills/index.json load error:', e);
+      SKILLS = [];
+    }
+    skillsLoaded = true;
+  }
+
+  if (!activeSkillId && SKILLS.length > 0) activeSkillId = SKILLS[0].id;
+  renderSkillList();
+  renderSkillDetail(activeSkillId);
+}
+
+function renderSkillList() {
+  const listEl  = document.getElementById('work-list');
+  const countEl = document.getElementById('work-queue-count');
+  if (!listEl) return;
+  if (countEl) countEl.textContent = SKILLS.length;
+
+  if (SKILLS.length === 0) {
+    listEl.innerHTML = `<div class="work-queue-empty">아직 아카이빙한 스킬이 없습니다</div>`;
+    return;
+  }
+
+  listEl.innerHTML = SKILLS.map(s => {
+    const isActive = s.id === activeSkillId;
+    const thumb = s.thumb
+      ? `<img class="skill-card-thumb" src="${escHtml(s.thumb)}" alt="">`
+      : `<div class="skill-card-thumb-empty">🧩</div>`;
+    const tags = (s.tags || []).slice(0, 3).map(t => `<span class="badge badge-gray badge-sm">${escHtml(t)}</span>`).join('');
+    return `
+      <div class="skill-card${isActive ? ' active' : ''}" data-id="${escHtml(s.id)}" onclick="selectSkill('${escHtml(s.id)}')">
+        ${thumb}
+        <div class="skill-card-body">
+          <div class="skill-card-title">${escHtml(s.title)}</div>
+          <div class="skill-card-tags">${tags}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function selectSkill(id) {
+  activeSkillId = id;
+  document.querySelectorAll('.skill-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.id === id);
+  });
+  renderSkillDetail(id);
+}
+
+async function renderSkillDetail(id) {
+  const container = document.getElementById('work-detail-inner');
+  if (!container) return;
+
+  const skill = SKILLS.find(s => s.id === id);
+  if (!skill) {
+    container.innerHTML = `<div class="work-queue-empty">왼쪽 목록에서 스킬을 선택하세요</div>`;
+    return;
+  }
+
+  const tags = (skill.tags || []).map(t => `<span class="badge badge-gray badge-sm">${escHtml(t)}</span>`).join(' ');
+  const thumb = skill.thumb ? `<img class="skill-detail-hero" src="${escHtml(skill.thumb)}" alt="">` : '';
+  const sourceLink = skill.sourceUrl
+    ? `<a href="${escHtml(skill.sourceUrl)}" target="_blank" rel="noopener">${escHtml(skill.sourceLabel || skill.sourceUrl)} ↗</a>`
+    : '';
+  const demoLink = skill.demoPath
+    ? `<a href="${escHtml(skill.demoPath)}" target="_blank" rel="noopener">라이브 데모 열기 ↗</a>`
+    : '';
+
+  container.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-name">${escHtml(skill.title)}</div>
+      <div class="detail-brief">${escHtml(skill.summary || '')}</div>
+    </div>
+    ${thumb}
+    <div class="skill-detail-meta">
+      ${tags}
+      ${demoLink ? `<span>·</span>${demoLink}` : ''}
+      ${sourceLink ? `<span>·</span>${sourceLink}` : ''}
+      ${skill.addedAt ? `<span>· ${escHtml(skill.addedAt)} 아카이빙</span>` : ''}
+    </div>
+    <div class="skill-detail-body" id="skill-detail-body-${escHtml(skill.id)}">불러오는 중…</div>
+  `;
+
+  try {
+    const res = await fetch(`skills/${skill.id}.md?t=` + Date.now());
+    const md = res.ok ? await res.text() : '_상세 설명 파일을 찾을 수 없습니다._';
+    const bodyEl = document.getElementById(`skill-detail-body-${skill.id}`);
+    if (bodyEl) bodyEl.innerHTML = renderMarkdown(md);
+  } catch(e) {
+    const bodyEl = document.getElementById(`skill-detail-body-${skill.id}`);
+    if (bodyEl) bodyEl.textContent = '상세 설명을 불러오지 못했습니다.';
+  }
 }
 
 function getFilteredProjects() {
@@ -423,6 +625,7 @@ function getFilteredProjects() {
 
 // ── Top Bar ────────────────────────────────────────────────────────────────────
 function renderTopBar() {
+  if (viewMode === 'skills') return; // 스킬 도서관 화면에서는 프로젝트 통계로 덮어쓰지 않음
   const projEl = document.getElementById('topbar-project');
   const statsEl = document.getElementById('topbar-stats');
   if (!projEl || !statsEl) return;
@@ -435,19 +638,21 @@ function renderTopBar() {
   const filtered = getFilteredProjects();
   const inProgress = filtered.filter(p => p.status === 'in_progress' || p.status === 'running').length;
   const completed  = filtered.filter(p => p.status === 'completed').length;
-  const unlinked   = REQUESTS.filter(r => !r.linkedRunId).length;
-
   statsEl.innerHTML = `
     <span class="topbar-stat"><strong>${inProgress}</strong> 진행 중</span>
     <span class="topbar-stat" style="color:var(--border)">·</span>
     <span class="topbar-stat"><strong>${completed}</strong> 완료</span>
-    <span class="topbar-stat" style="color:var(--border)">·</span>
-    <span class="topbar-stat"><strong>${unlinked}</strong> 미분류 요청</span>
   `;
+
+  const dsEl = document.getElementById('dssync-last-at');
+  const ssEl = document.getElementById('screensync-last-at');
+  if (dsEl) dsEl.textContent = fmtSyncAt(GLOBAL.dsSyncLastAt);
+  if (ssEl) ssEl.textContent = fmtSyncAt(GLOBAL.screenSyncLastAt);
 }
 
 // ── Work Queue ─────────────────────────────────────────────────────────────────
 function renderWorkQueue() {
+  if (viewMode === 'skills') return; // 스킬 도서관 화면에서는 작업 목록으로 덮어쓰지 않음
   const listEl  = document.getElementById('work-list');
   const countEl = document.getElementById('work-queue-count');
   if (!listEl) return;
@@ -463,7 +668,7 @@ function renderWorkQueue() {
   listEl.innerHTML = filtered.map(p => {
     const key = getProjectKey(p);
     const isActive = p.id === activeWorkId;
-    const timeStr = p.startedAt ? p.startedAt.slice(11,16) : '';
+    const timeStr = fmtTs(p.startedAt);
     const projBadge = (activeProjectKey === 'all')
       ? `<span class="badge ${getProjectBadgeClass(key)} badge-sm">${escHtml(p.project || 'unknown')}</span>`
       : '';
@@ -471,10 +676,9 @@ function renderWorkQueue() {
     return `
       <div class="work-card${isActive ? ' active' : ''}" data-id="${escHtml(p.id)}" onclick="selectWork('${escHtml(p.id)}')">
         <div class="work-card-name">${escHtml(p.name || p.id)}</div>
-        <div class="work-card-brief">${escHtml(p.brief || '—')}</div>
+        ${p.brief ? `<div class="work-card-brief">${escHtml(p.brief)}</div>` : ''}
         <div class="work-card-meta">
           ${getStatusBadge(p.status)}
-          ${getProgressBadge(p)}
           ${projBadge}
           <span class="work-card-time">${escHtml(timeStr)}</span>
         </div>
@@ -493,6 +697,7 @@ function selectWork(id) {
 
 // ── Work Detail ────────────────────────────────────────────────────────────────
 function renderWorkDetail() {
+  if (viewMode === 'skills') return; // 스킬 도서관 화면에서는 작업 상세로 덮어쓰지 않음
   const container = document.getElementById('work-detail-inner');
   if (!container) return;
 
@@ -512,35 +717,37 @@ function renderWorkDetail() {
   }
 
   const key = getProjectKey(p);
+  const trailCount = getRequestsForRun(p).items.length;
   const figmaAgent = (p.agents || []).find(a => (a.id === 'figma-builder' || a.id === 'builder') && a.figma?.nodeId);
   const figmaLink = figmaAgent
     ? `<a class="figma-link" href="https://www.figma.com/design/08IM3G7mpViYDVdAUNtvdW/?node-id=${figmaAgent.figma.nodeId.replace(':','-')}" target="_blank" rel="noopener">Figma ↗</a>`
     : '';
+  const reportLinks = (p.agents || [])
+    .filter(a => a.reportFile)
+    .map(a => `<a class="figma-link" href="${escHtml(a.reportFile)}" target="_blank" rel="noopener">${escHtml(a.name || a.id)} 원본 ↗</a>`)
+    .join('');
 
   container.innerHTML = `
     <div class="detail-header">
       <div class="detail-name">${escHtml(p.name || p.id)}</div>
       <div class="detail-badges">
         ${getStatusBadge(p.status)}
-        ${getProgressBadge(p)}
         <span class="badge ${getProjectBadgeClass(key)} badge-sm">${escHtml(p.project || 'unknown')}</span>
-        ${p.domain  ? `<span class="domain-badge domain-badge-${escHtml((p.domain||'unknown').replace(/[^a-z-]/g,''))}">${escHtml(p.domain)}</span>` : ''}
         ${p.rollback ? '<span class="badge badge-amber badge-sm">롤백</span>' : ''}
         ${figmaLink}
+        ${reportLinks}
       </div>
       <div class="detail-meta">
         <span style="cursor:pointer" onclick="copyQuestId('${escHtml(p.id)}', event)">${escHtml(p.id)}</span>
-        ${p.startedAt   ? ` · 시작 ${escHtml(p.startedAt)}`   : ''}
+        ${p.startedAt   ? ` · 시작 ${escHtml(fmtTs(p.startedAt))}`   : ''}
         ${p.duration    ? ` · 소요 ${escHtml(p.duration)}`    : ''}
-        ${p.completedAt ? ` · 완료 ${escHtml(p.completedAt)}` : ''}
+        ${p.completedAt ? ` · 완료 ${escHtml(fmtTs(p.completedAt))}` : ''}
       </div>
       ${p.brief ? `<div class="detail-brief">${escHtml(p.brief)}</div>` : ''}
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn" onclick="openDirectorModal('${escHtml(p.id)}')">Director Notes</button>
-        <button class="btn" onclick="openModal('modal-overview')">개요 보기</button>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button class="btn" onclick="openDirectorModal('${escHtml(p.id)}')"><img src="assets/director.png" style="width:13px;height:13px;image-rendering:pixelated;">director</button>
       </div>
     </div>
-    <div class="detail-section-title" style="margin-top:20px">Pipeline</div>
     <div id="kanban" class="kanban"></div>
     <div class="activity-preview" id="activity-preview-area"></div>
   `;
@@ -549,17 +756,6 @@ function renderWorkDetail() {
   renderActivityPreview(p);
 }
 
-// ── Log filter ─────────────────────────────────────────────────────────────────
-function setLogFilter(filter) {
-  activeLogFilter = filter;
-  document.querySelectorAll('.log-filter-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.filter === filter);
-  });
-  if (activeDrawer === 'log') {
-    const body = document.getElementById('drawer-body');
-    if (body) renderLogDrawer(body);
-  }
-}
 
 // Map old log type + agent to event type
 function mapLogEventType(log) {
@@ -574,14 +770,6 @@ function mapLogEventType(log) {
   return 'agent_start';
 }
 
-function logMatchesFilter(log, filter) {
-  if (filter === 'all') return true;
-  const eventType = mapLogEventType(log);
-  const filterTypes = filter.split(',').map(s => s.trim());
-  if (filterTypes.includes(eventType)) return true;
-  if (filterTypes.includes('director_decision') && log.agent === 'director') return true;
-  return false;
-}
 
 // ── Validator Output Parser ────────────────────────────────────────────────────
 function parseValidatorOutput(output) {
@@ -622,7 +810,7 @@ function buildValidatorResultBadge(output) {
 // ── Agent Card ─────────────────────────────────────────────────────────────────
 function buildAgentCard(projectId, a, modeLabel) {
   const modeTag = modeLabel
-    ? `<span style="font-size:9.5px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted);margin-right:3px">${modeLabel}</span>`
+    ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted);margin-right:3px">${modeLabel}</span>`
     : '';
 
   if (a.status === 'idle') {
@@ -630,6 +818,39 @@ function buildAgentCard(projectId, a, modeLabel) {
       <div class="kanban-card status-idle" onclick="openAgentModal('${escHtml(projectId)}','${escHtml(a.id)}')">
         <div class="card-status-row">${modeTag}${statusText(a.status)}</div>
         <div class="card-desc" style="font-style:italic;opacity:0.5">소환 대기 중...</div>
+      </div>`;
+  }
+
+  // history 회차 스택 (idle 제외 모든 상태에서 이전 회차를 prev 카드로 표시)
+  const hasAttempts = Array.isArray(a.history) && a.history.length > 0 && typeof a.history[0] === 'object';
+  const prevAttempts = hasAttempts ? a.history.slice(0, -1) : [];
+  const attemptCards = prevAttempts.map((h, i) => {
+    const sShort = h.summary ? (h.summary.length > 72 ? h.summary.slice(0, 72) + '…' : h.summary) : '—';
+    return `
+    <div class="kanban-card kanban-card-collapsed status-${h.status} attempt-prev" onclick="openAgentModal('${escHtml(projectId)}','${escHtml(a.id)}', ${i})">
+      <div class="collapsed-row">
+        ${modeTag}${statusText(h.status)}
+        <span class="attempt-num">${h.attempt}회차</span>
+      </div>
+      <div class="card-summary-collapsed">${escHtml(sShort)}</div>
+    </div>`;
+  }).join('');
+
+  // Collapsed done card — click card to open modal, click ▾ to expand inline
+  const cardKey = `${projectId}_${a.id}`;
+  if (a.status === 'done' && !expandedCards.has(cardKey)) {
+    const isValidator = a.id === 'validator-plan' || a.id === 'validator' || a.id === 'plan-validator' || a.id === 'validator-ui';
+    const validatorBadge = isValidator ? buildValidatorResultBadge(a.output) : '';
+    const summaryShort = a.summary ? (a.summary.length > 72 ? a.summary.slice(0, 72) + '…' : a.summary) : '—';
+    return attemptCards + `
+      <div class="kanban-card kanban-card-collapsed status-done" onclick="openAgentModal('${escHtml(projectId)}','${escHtml(a.id)}')">
+        <div class="collapsed-row">
+          ${modeTag}${statusText('done')}
+          ${hasAttempts ? `<span class="attempt-num">${a.history.length}회차</span>` : ''}
+          ${validatorBadge}
+          <button class="card-expand-btn" onclick="event.stopPropagation();toggleCardExpand('${escHtml(cardKey)}')" title="펼치기">▾</button>
+        </div>
+        <div class="card-summary-collapsed">${escHtml(summaryShort)}</div>
       </div>`;
   }
 
@@ -642,21 +863,6 @@ function buildAgentCard(projectId, a, modeLabel) {
         node: ${escHtml(a.figma.nodeId || '')}
       </div>
     </div>` : '';
-
-  const hasAttempts = Array.isArray(a.history) && a.history.length > 0 && typeof a.history[0] === 'object';
-  const prevAttempts = hasAttempts ? a.history.slice(0, -1) : [];
-  const attemptCards = prevAttempts.map(h => `
-    <div class="kanban-card status-${h.status} attempt-prev" onclick="openAgentModal('${escHtml(projectId)}','${escHtml(a.id)}')">
-      <div class="card-status-row">
-        ${modeTag}${statusText(h.status)}
-        <span class="attempt-num">${h.attempt}회차</span>
-      </div>
-      <div class="card-desc">${escHtml(h.summary || '')}</div>
-      <div class="card-meta">
-        <span class="card-time">${escHtml(h.startedAt || '')}</span>
-        <span class="card-duration">${escHtml(h.duration || '')}</span>
-      </div>
-    </div>`).join('');
 
   const isValidator = a.id === 'validator-plan' || a.id === 'validator' || a.id === 'plan-validator' || a.id === 'validator-ui';
   const validatorBadge = isValidator ? buildValidatorResultBadge(a.output) : '';
@@ -671,11 +877,11 @@ function buildAgentCard(projectId, a, modeLabel) {
       ${a.summary ? `<div class="card-summary-line">${escHtml(a.summary)}</div>` : ''}
       ${validatorBadge}
       ${a.output
-        ? `<div class="card-thinking">${escHtml(a.output)}</div>`
+        ? `<div class="card-thinking">${fmtOutput(a.output)}</div>`
         : `<div class="card-desc" style="opacity:0.35;font-style:italic">—</div>`}
       ${figmaBlock}
       <div class="card-meta">
-        <span class="card-time">${escHtml(a.startedAt || '')}</span>
+        <span class="card-time">${escHtml(fmtTs(a.startedAt))}</span>
         <span class="card-duration">${escHtml(a.duration || (a.status === 'running' ? '실행 중' : ''))}</span>
       </div>
     </div>`;
@@ -699,8 +905,8 @@ function renderKanban(p) {
       const aUi   = agentMap['validator-ui'] || agentMap['validator'];
       const planActive = aPlan && aPlan.status !== 'idle';
       const uiActive   = aUi   && aUi.status   !== 'idle';
-      cardHtml = (planActive ? buildAgentCard(p.id, aPlan, 'plan') : '') +
-                 (uiActive   ? buildAgentCard(p.id, aUi,   'ui')   : '');
+      cardHtml = (planActive ? buildAgentCard(p.id, aPlan, '기획') : '') +
+                 (uiActive   ? buildAgentCard(p.id, aUi,   'UI')   : '');
       const running = (aPlan?.status === 'running') || (aUi?.status === 'running');
       duration = running ? '...' : (aUi?.duration || aPlan?.duration || '—');
     } else {
@@ -725,13 +931,21 @@ function renderKanban(p) {
   }).join('');
 }
 
+// ── Card expand toggle ─────────────────────────────────────────────────────────
+function toggleCardExpand(cardKey) {
+  if (expandedCards.has(cardKey)) expandedCards.delete(cardKey);
+  else expandedCards.add(cardKey);
+  const p = PROJECTS.find(x => x.id === activeWorkId);
+  if (p) renderKanban(p);
+}
+
 // ── Activity Preview ───────────────────────────────────────────────────────────
 function renderActivityPreview(p) {
   const area = document.getElementById('activity-preview-area');
   if (!area || !p) return;
 
   const allLogs = (p.logs || []).slice().reverse();
-  const preview = allLogs.slice(0, 5);
+  const preview = allLogs.slice(0, 8);
 
   if (preview.length === 0) {
     area.innerHTML = '';
@@ -746,12 +960,86 @@ function renderActivityPreview(p) {
     <div class="activity-preview-list">
       ${preview.map(l => `
         <div class="activity-item">
-          <span class="activity-item-ts">${escHtml(l.ts || '')}</span>
+          <span class="activity-item-ts">${escHtml(fmtTs(l.ts))}</span>
           <span class="badge ${getAgentBadge(l.agent)} badge-sm" style="flex-shrink:0">${getAgentLabel(l.agent)}</span>
-          <span class="activity-item-msg">${escHtml(l.msg || '')}</span>
+          <span class="activity-item-msg">${escHtmlLink(l.msg || '')}</span>
         </div>`).join('')}
     </div>
   `;
+}
+
+// ── Request trail (채팅 단위 요청·작업) ──────────────────────────────────────────
+const WORKTYPE_LABELS = {
+  build: '생성', plan: '설계', design: '명세', review: '검수', fix: '수정',
+  sync: '동기화', question: '질문', 'system-change': '시스템', unknown: '기타',
+};
+function worktypeBadge(wt) {
+  const label = WORKTYPE_LABELS[wt] || WORKTYPE_LABELS.unknown;
+  return `<span class="trail-type trail-type-${wt || 'unknown'}">${label}</span>`;
+}
+// 정제된 요약만 노출: digest(디렉터 정제) → 자동요약 순. 원문(raw)은 표시하지 않고 hover 툴팁으로만.
+function requestText(r) {
+  // 정제된 digest만 노출. digest 없으면 원문(raw≈summary)을 그대로 보이지 않도록 대기 표기.
+  return r.digest || '(요약 대기)';
+}
+
+// 시스템/대시보드 성격의 대화 — 퀘스트 작업이 아니므로 작업 흐름엔 안 보이고 광역에만 노출
+function isSystemRequest(r) {
+  return r.project === 'system' || r.domain === 'dashboard' || r.workType === 'system-change';
+}
+// 채팅 1건이 어느 작업(퀘스트)/카테고리에 속하는지 분류 — 광역 타임라인 기준
+function getRequestCategory(r) {
+  // 1) 명시 연결된 퀘스트 (의도적 연결이므로 최우선)
+  if (r.linkedRunId) {
+    const run = PROJECTS.find(p => p.id === r.linkedRunId);
+    return { kind: 'run', id: r.linkedRunId, key: getProjectKey(run || r) };
+  }
+  // 2) 시스템/대시보드 작업 (퀘스트 아님)
+  if (isSystemRequest(r)) return { kind: 'system' };
+  // 3) 프로젝트+날짜 구간으로 퀘스트 추정
+  const rd = (r.at || '').slice(0, 10);
+  const run = PROJECTS.find(p => p.startedAt && p.project === r.project
+    && rd >= (p.startedAt || '').slice(0, 10)
+    && (!p.completedAt || rd <= (p.completedAt || '').slice(0, 10)));
+  if (run) return { kind: 'run', id: run.id, key: getProjectKey(run), guess: true };
+  // 4) 그 외 — 프로젝트 단위 일반 대화
+  return { kind: 'general', key: getProjectKey(r), project: r.project };
+}
+// 광역 타임라인 분류 배지 — 모두 동일한 .badge 체계로 통일
+function categoryBadge(r) {
+  const c = getRequestCategory(r);
+  if (c.kind === 'run') {
+    return `<span class="badge ${getProjectBadgeClass(c.key)} badge-sm tl-run${c.guess ? ' tl-guess' : ''}"
+      title="${c.guess ? '추정 연결' : '연결'} · 클릭 시 작업 열기"
+      onclick="event.stopPropagation();closeDrawer();selectWork('${escHtml(c.id)}')">${escHtml(c.id)}</span>`;
+  }
+  if (c.kind === 'system') return `<span class="badge badge-gray badge-sm">시스템</span>`;
+  return `<span class="badge ${getProjectBadgeClass(c.key)} badge-sm">${escHtml(c.project || 'unknown')}</span>`;
+}
+// 작업(run)에 속한 채팅: 명시 연결(linkedRunId)과 프로젝트+날짜 구간 추정을 합집합으로 모은다.
+// 반환: { items, heuristic } — 추정 건이 섞이면 heuristic=true. 과다 시 최근 CAP건만 노출.
+const HEURISTIC_TRAIL_CAP = 12;
+function getRequestsForRun(p) {
+  if (!p || !REQUESTS.length) return { items: [], heuristic: false };
+  const asc = (a, b) => (a.at || '').localeCompare(b.at || '');
+  const sd = (p.startedAt || '').slice(0, 10);
+  const cd = (p.completedAt || '').slice(0, 10);
+
+  let usedHeuristic = false;
+  const matched = REQUESTS.filter(r => {
+    if (r.linkedRunId === p.id) return true;     // 명시 연결 — 항상 포함
+    if (r.linkedRunId) return false;             // 다른 작업에 연결됨 — 제외
+    if (isSystemRequest(r)) return false;        // 시스템/대시보드 대화 — 작업 흐름에서 제외 (광역에만 노출)
+    if (!p.project || r.project !== p.project) return false;
+    const rd = (r.at || '').slice(0, 10);
+    if (!rd || !sd || rd < sd) return false;
+    if (cd && rd > cd) return false;
+    usedHeuristic = true;                        // 추정 매칭
+    return true;
+  }).sort(asc);
+
+  if (matched.length <= HEURISTIC_TRAIL_CAP) return { items: matched, heuristic: usedHeuristic };
+  return { items: matched.slice(-HEURISTIC_TRAIL_CAP), heuristic: true };
 }
 
 // ── Drawer ─────────────────────────────────────────────────────────────────────
@@ -759,13 +1047,67 @@ function openDrawer(type) {
   activeDrawer = type;
   document.getElementById('drawer-panel').classList.add('open');
   document.getElementById('drawer-backdrop').classList.add('open');
-  const titles = { inbox: '요청함', log: '전체 로그', system: '변경 이력' };
-  document.getElementById('drawer-title').textContent = titles[type] || type;
   const body = document.getElementById('drawer-body');
   if (!body) return;
-  if (type === 'inbox')  renderInboxDrawer(body);
-  else if (type === 'log')    renderLogDrawer(body);
-  else if (type === 'system') renderSystemDrawer(body);
+  if (type === 'timeline') {
+    document.getElementById('drawer-title').textContent = '광역 타임라인 · 전체 대화';
+    renderTimelineDrawer(body);
+  } else if (type === 'trail') {
+    document.getElementById('drawer-title').textContent = '작업 흐름 · 이 작업';
+    renderTrailDrawer(body);
+  } else {
+    document.getElementById('drawer-title').textContent = '전체 로그';
+    renderLogDrawer(body);
+  }
+}
+
+// ── Trail Drawer (이 작업에 연결된 채팅 흐름) ──────────────────────────────────
+function renderTrailDrawer(container) {
+  const p = activeWorkId ? PROJECTS.find(x => x.id === activeWorkId) : null;
+  if (!p) {
+    container.innerHTML = `<div class="empty-state" style="min-height:120px">작업을 선택하면 작업 흐름이 표시됩니다</div>`;
+    return;
+  }
+  const { items, heuristic } = getRequestsForRun(p);
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state" style="min-height:80px">이 작업에 연결된 대화가 없습니다</div>`;
+    return;
+  }
+  const hint = heuristic
+    ? `<div class="drawer-hint">프로젝트·날짜로 <b>추정 연결</b>된 최근 ${items.length}건 · 광역 타임라인에서 전체 확인</div>`
+    : '';
+  const rows = items.slice().reverse().map(r => `
+    <div class="log-line" title="${escHtml(r.raw || '')}">
+      <span class="log-ts">${escHtml(fmtTs(r.at))}</span>
+      <span class="log-agent">${worktypeBadge(r.workType)}</span>
+      <span class="log-msg">${escHtml(requestText(r))}</span>
+    </div>`).join('');
+  container.innerHTML = `${hint}<div class="chat-drawer trail-drawer">${rows}</div>`;
+}
+
+// ── Timeline Drawer (전체 채팅 단위 기록) ────────────────────────────────────────
+function renderTimelineDrawer(container) {
+  if (!REQUESTS.length) {
+    container.innerHTML = `<div class="empty-state" style="min-height:120px">기록된 대화가 없습니다</div>`;
+    return;
+  }
+  const sorted = REQUESTS.slice().sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  const groups = {};
+  for (const r of sorted) {
+    const date = (r.at || '').slice(0, 10) || '날짜 없음';
+    (groups[date] = groups[date] || []).push(r);
+  }
+  const html = Object.keys(groups).map(date => `
+    <div class="timeline-group">
+      <div class="timeline-date">${escHtml(date)}</div>
+      ${groups[date].map(r => `
+        <div class="log-line" title="${escHtml(r.raw || '')}">
+          <span class="log-ts">${escHtml((r.at || '').slice(11, 16))}</span>
+          <span class="log-agent timeline-agent">${categoryBadge(r)}</span>
+          <span class="log-msg">${escHtml(requestText(r))}</span>
+        </div>`).join('')}
+    </div>`).join('');
+  container.innerHTML = `<div class="chat-drawer timeline-drawer">${html}</div>`;
 }
 
 function closeDrawer() {
@@ -774,163 +1116,38 @@ function closeDrawer() {
   document.getElementById('drawer-backdrop').classList.remove('open');
 }
 
-// ── Inbox Drawer ───────────────────────────────────────────────────────────────
-function renderInboxDrawer(container) {
-  if (REQUESTS.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="min-height:160px">요청 없음</div>`;
-    return;
-  }
-
-  container.innerHTML = REQUESTS.map(r => {
-    const key = r.project ? r.project.toLowerCase() : 'unknown';
-    const projBadge = r.project
-      ? `<span class="badge ${getProjectBadgeClass(key)} badge-sm">${escHtml(r.project)}</span>`
-      : '';
-    const domainClass = 'domain-badge domain-badge-' + (r.domain || 'unknown').replace(/[^a-z-]/g, '');
-    const domainBadge = r.domain ? `<span class="${domainClass}">${escHtml(r.domain)}</span>` : '';
-    const wtClass = 'worktype-badge worktype-badge-' + (r.workType || 'unknown').replace(/[^a-z-]/g, '');
-    const wtBadge = r.workType ? `<span class="${wtClass}">${escHtml(r.workType)}</span>` : '';
-    const linkedBtn = r.linkedRunId
-      ? `<span style="font-size:10px;color:var(--accent-cyan);cursor:pointer;margin-left:auto" onclick="selectWork('${escHtml(r.linkedRunId)}');closeDrawer();" title="연결된 퀘스트">→ ${escHtml(r.linkedRunId)}</span>`
-      : '';
-
-    return `
-      <div class="req-card">
-        <div class="req-card-header">
-          <span class="req-card-time">${escHtml(r.at || '')}</span>
-          ${projBadge}
-          ${domainBadge}
-          ${wtBadge}
-          ${linkedBtn}
-        </div>
-        <div class="req-card-summary">${escHtml(r.summary || r.raw || '—')}</div>
-        ${r.raw ? `
-        <details>
-          <summary>원문 보기</summary>
-          <div class="req-card-raw">${escHtml(r.raw)}</div>
-        </details>` : ''}
-      </div>`;
-  }).join('');
-}
-
 // ── Log Drawer ─────────────────────────────────────────────────────────────────
 function renderLogDrawer(container) {
   const p = activeWorkId ? PROJECTS.find(x => x.id === activeWorkId) : null;
   const allLogs = p ? (p.logs || []) : [];
 
-  const filterBar = `
-    <div class="log-filter-bar">
-      <button class="log-filter-btn${activeLogFilter==='all'?' active':''}" data-filter="all" onclick="setLogFilter('all')">전체</button>
-      <button class="log-filter-btn${activeLogFilter==='user_request'?' active':''}" data-filter="user_request" onclick="setLogFilter('user_request')">요청</button>
-      <button class="log-filter-btn${activeLogFilter==='director_decision'?' active':''}" data-filter="director_decision" onclick="setLogFilter('director_decision')">Director</button>
-      <button class="log-filter-btn${activeLogFilter==='agent_start,agent_complete'?' active':''}" data-filter="agent_start,agent_complete" onclick="setLogFilter('agent_start,agent_complete')">에이전트</button>
-      <button class="log-filter-btn${activeLogFilter==='validation_pass,validation_fail'?' active':''}" data-filter="validation_pass,validation_fail" onclick="setLogFilter('validation_pass,validation_fail')">검수</button>
-      <button class="log-filter-btn${activeLogFilter==='build_start,build_complete,build_fail'?' active':''}" data-filter="build_start,build_complete,build_fail" onclick="setLogFilter('build_start,build_complete,build_fail')">Figma</button>
-      <button class="log-filter-btn${activeLogFilter==='error'?' active':''}" data-filter="error" onclick="setLogFilter('error')">오류</button>
-    </div>`;
-
   if (!p) {
-    container.innerHTML = filterBar + `<div class="empty-state" style="min-height:120px">작업을 선택하면 로그가 표시됩니다</div>`;
+    container.innerHTML = `<div class="empty-state" style="min-height:120px">작업을 선택하면 로그가 표시됩니다</div>`;
     return;
   }
 
-  const filtered = activeLogFilter === 'all'
-    ? allLogs
-    : allLogs.filter(l => logMatchesFilter(l, activeLogFilter));
-
-  const logsHtml = filtered.length === 0
+  const logsHtml = allLogs.length === 0
     ? `<div class="empty-state" style="min-height:80px">로그 없음</div>`
-    : filtered.slice().reverse().map((l, idx) => {
+    : allLogs.slice().reverse().map((l, idx) => {
         const origIdx = allLogs.indexOf(l);
         const isDirector = l.agent === 'director';
         return `
           <div class="log-line ${isDirector ? 'log-director' : getLogClass(l.type)}" onclick="openLogDetailModal('${escHtml(p.id)}', ${origIdx >= 0 ? origIdx : 0})">
-            <span class="log-ts">${escHtml(l.ts || '')}</span>
+            <span class="log-ts">${escHtml(fmtTs(l.ts))}</span>
             <span class="log-agent"><span class="badge ${getAgentBadge(l.agent)}">${getAgentLabel(l.agent)}</span></span>
-            <span class="log-msg">${escHtml(l.msg || '')}</span>
+            <span class="log-msg">${escHtmlLink(l.msg || '')}</span>
           </div>`;
       }).join('');
 
-  container.innerHTML = filterBar + `<div id="log-body">${logsHtml}</div>`;
+  container.innerHTML = `<div id="log-body">${logsHtml}</div>`;
 }
 
 // ── System Drawer ──────────────────────────────────────────────────────────────
-function renderSystemDrawer(container) {
-  const allEntries = [...SYSTEM_CHANGES, ...DS_SYNC_HISTORY, ...SCREEN_SYNC_HISTORY]
-    .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
-
-  if (allEntries.length === 0) {
-    container.innerHTML = `<div class="empty-state" style="min-height:120px">시스템 변경 내역 없음</div>`;
-    return;
-  }
-
-  const layerColor = {
-    agent:'badge-blue', skill:'badge-cyan', docs:'badge-green',
-    dashboard:'badge-amber', director:'badge-gray'
-  };
-  const typeColor = {
-    'system-change':'badge-amber', 'ds-sync':'badge-cyan',
-    'screen-sync':'badge-violet', 'figma-build':'badge-purple',
-    'font-fix':'badge-gray'
-  };
-
-  container.innerHTML = allEntries.map(e => {
-    const typeBadge = `<span class="badge ${typeColor[e.type] || 'badge-gray'} badge-sm">${escHtml(e.type || '변경')}</span>`;
-    const layerBadge = e.layer ? `<span class="badge ${layerColor[e.layer] || 'badge-gray'} badge-sm">${escHtml(e.layer)}</span>` : '';
-    const targetCode = e.target ? `<code style="font-size:10.5px;color:var(--accent-cyan);background:var(--bg-elevated);border:1px solid var(--border);border-radius:2px;padding:1px 5px">${escHtml(e.target)}</code>` : '';
-
-    const screenStats = (e.screensScanned != null || e.patternsAdded != null) ? `
-      <div style="display:flex;gap:6px;margin-top:4px">
-        ${e.screensScanned != null ? `<span class="badge badge-cyan badge-sm">화면 ${e.screensScanned}개</span>` : ''}
-        ${e.patternsAdded   != null ? `<span class="badge badge-violet badge-sm">패턴 +${e.patternsAdded}</span>` : ''}
-      </div>` : '';
-
-    return `
-      <div class="sys-entry">
-        <div class="sys-entry-header">
-          <span style="font-size:10px;color:var(--text-muted)">${escHtml(e.at || '')}</span>
-          ${typeBadge}
-          ${layerBadge}
-          ${targetCode}
-        </div>
-        <div class="sys-entry-body">${escHtml(e.summary || '—')}</div>
-        ${e.impact ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${escHtml(e.impact)}</div>` : ''}
-        ${screenStats}
-      </div>`;
-  }).join('');
-}
-
-// ── System Change Modal ────────────────────────────────────────────────────────
-function openSysChangeModal() {
-  const body = document.getElementById('modal-syschange-body');
-  if (SYSTEM_CHANGES.length === 0) {
-    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">시스템 변경 내역 없음</div>`;
-  } else {
-    const layerColor = { agent:'badge-blue', skill:'badge-cyan', docs:'badge-green', dashboard:'badge-amber', director:'badge-gray' };
-    body.innerHTML = `
-      <div class="modal-log-list">
-        ${SYSTEM_CHANGES.map((e, i) => `
-          <div class="modal-log-item" style="${i === 0 ? 'color:var(--text-primary)' : ''}">
-            <span class="modal-log-ts">${escHtml(e.at || '—')}</span>
-            <div class="modal-log-text">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
-                ${e.layer ? `<span class="badge ${layerColor[e.layer] || 'badge-gray'} badge-sm">${escHtml(e.layer)}</span>` : ''}
-                ${e.target ? `<code style="font-size:11px;color:var(--accent-cyan);background:var(--bg-elevated);border:1px solid var(--border);border-radius:2px;padding:1px 5px">${escHtml(e.target)}</code>` : ''}
-              </div>
-              <div style="font-size:12.5px;color:var(--text-secondary)">${escHtml(e.summary || '시스템 변경')}</div>
-              ${e.impact ? `<div style="margin-top:3px;font-size:11px;color:var(--text-muted)">${escHtml(e.impact)}</div>` : ''}
-            </div>
-          </div>`).join('')}
-      </div>`;
-  }
-  openModal('modal-syschange');
-}
-
 // ── Screen Sync Modal ──────────────────────────────────────────────────────────
 function openScreenSyncModal() {
   const body = document.getElementById('modal-screensync-body');
   if (SCREEN_SYNC_HISTORY.length === 0) {
-    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">실행 내역 없음</div>`;
+    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:12px">실행 내역 없음</div>`;
   } else {
     body.innerHTML = `
       <div class="modal-log-list">
@@ -955,7 +1172,7 @@ function openScreenSyncModal() {
 function openDsSyncModal() {
   const body = document.getElementById('modal-dssync-body');
   if (DS_SYNC_HISTORY.length === 0) {
-    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:13px">실행 내역 없음</div>`;
+    body.innerHTML = `<div style="padding:24px 0;text-align:center;color:var(--text-muted);font-size:12px">실행 내역 없음</div>`;
   } else {
     body.innerHTML = `
       <div class="modal-log-list">
@@ -974,10 +1191,10 @@ function openDirectorModal(projectId) {
   const p = PROJECTS.find(x => x.id === projectId);
   const body = document.getElementById('modal-director-body');
   const titleEl = document.getElementById('modal-director-title');
-  if (titleEl) titleEl.textContent = p ? p.name : 'Director Notes';
+  if (titleEl) titleEl.textContent = p ? p.name : 'director';
 
   if (!p) {
-    body.innerHTML = `<div style="padding:32px 0;text-align:center;color:var(--text-muted);font-size:13px">대화 내역 없음</div>`;
+    body.innerHTML = `<div style="padding:32px 0;text-align:center;color:var(--text-muted);font-size:12px">대화 내역 없음</div>`;
     openModal('modal-director');
     return;
   }
@@ -993,7 +1210,7 @@ function openDirectorModal(projectId) {
           <div style="display:grid;grid-template-columns:58px auto 1fr;align-items:baseline;gap:8px;padding:3px 0;font-size:12px">
             <span style="color:var(--text-muted)">${escHtml(l.ts || '')}</span>
             <span class="badge badge-gray badge-sm">director</span>
-            <span style="color:var(--text-secondary);line-height:1.55">${escHtml(l.msg || '')}</span>
+            <span style="color:var(--text-secondary);line-height:1.55">${escHtmlLink(l.msg || '')}</span>
           </div>`).join('')}
       </div>
     </div>` : '';
@@ -1012,7 +1229,7 @@ function openDirectorModal(projectId) {
                 <span class="badge ${getAgentBadge(a.id)} badge-sm">${getAgentLabel(a.id) || a.name}</span>
                 ${a.duration ? `<span style="font-size:11px;color:var(--text-muted);margin-left:auto">${escHtml(a.duration)}</span>` : ''}
               </div>
-              <div style="font-size:13px;color:var(--text-secondary);line-height:1.65">${escHtml(a.summary || '')}</div>
+              <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">${escHtml(a.summary || '')}</div>
               ${outputHtml}
             </div>`;
         }).join('')}
@@ -1020,13 +1237,13 @@ function openDirectorModal(projectId) {
     </div>` : '';
 
   body.innerHTML = dirLogsHtml + agentsHtml ||
-    `<div style="padding:32px 0;text-align:center;color:var(--text-muted);font-size:13px">대화 내역 없음</div>`;
+    `<div style="padding:32px 0;text-align:center;color:var(--text-muted);font-size:12px">대화 내역 없음</div>`;
 
   openModal('modal-director');
 }
 
 // ── Agent Modal ────────────────────────────────────────────────────────────────
-function openAgentModal(projectId, agentId) {
+function openAgentModal(projectId, agentId, attemptIdx) {
   const p = PROJECTS.find(x => x.id === projectId);
   if (!p) return;
   const a = p.agents.find(x => x.id === agentId);
@@ -1036,39 +1253,105 @@ function openAgentModal(projectId, agentId) {
     renderBuilderModal(a); openModal('modal-builder'); return;
   }
 
-  const cfg = COL_CONFIG[agentId] || COL_CONFIG[agentId.replace('figma-', '')] || COL_CONFIG[agentId.replace('ux-', '')] || COL_CONFIG[agentId.replace('ui-', '')] || {};
-  document.getElementById('modal-agent-title').innerHTML = `
-    ${cfg.icon ? `<img class="modal-agent-icon" src="${cfg.icon}" alt="${escHtml(a.name || '')}">` : ''}
-    ${escHtml(a.name || agentId)}`;
+  modalAgentCfg = COL_CONFIG[agentId] || COL_CONFIG[agentId.replace('figma-', '')] || COL_CONFIG[agentId.replace('ux-', '')] || COL_CONFIG[agentId.replace('ui-', '')] || {};
+  modalAgentName = a.name || agentId;
 
-  const notesHtml = a.notes ? `
+  // 회차 목록 구성 — history가 회차 배열이면 각 회차, 아니면 현재 1건. 마지막(최신) 회차는 현재 상태(output/report 포함).
+  const hasAttempts = Array.isArray(a.history) && a.history.length > 0 && typeof a.history[0] === 'object';
+  modalAttempts = hasAttempts
+    ? a.history.map((h, i) => {
+        const cur = (i === a.history.length - 1);
+        return {
+          attempt: h.attempt, status: cur ? a.status : h.status,
+          startedAt: h.startedAt, duration: h.duration,
+          summary: cur ? (a.summary || h.summary) : h.summary,
+          output: cur ? a.output : null, notes: cur ? a.notes : null, reportFile: cur ? a.reportFile : null,
+        };
+      })
+    : [{ attempt: 1, status: a.status, startedAt: a.startedAt, duration: a.duration, summary: a.summary, output: a.output, notes: a.notes, reportFile: a.reportFile }];
+
+  openModal('modal-agent');
+  const startIdx = (typeof attemptIdx === 'number' && attemptIdx >= 0 && attemptIdx < modalAttempts.length)
+    ? attemptIdx
+    : modalAttempts.length - 1;  // 기본값: 최신 회차부터
+  renderAgentAttempt(startIdx);
+}
+
+// 특정 회차를 모달에 렌더
+function renderAgentAttempt(idx) {
+  if (idx < 0 || idx >= modalAttempts.length) return;
+  modalAttemptIdx = idx;
+  const at = modalAttempts[idx];
+  const multi = modalAttempts.length > 1;
+
+  document.getElementById('modal-agent-title').innerHTML = `
+    ${modalAgentCfg.icon ? `<img class="modal-agent-icon" src="${modalAgentCfg.icon}" alt="${escHtml(modalAgentName)}">` : ''}
+    ${escHtml(modalAgentName)}
+    ${multi ? `<span class="attempt-num">${at.attempt}회차</span>` : ''}`;
+
+  const notesHtml = at.notes ? `
     <div class="modal-section">
       <div class="modal-section-title">비고</div>
-      <div style="font-size:12.5px;color:var(--accent-amber);line-height:1.65">${escHtml(a.notes)}</div>
+      <div style="font-size:12px;color:var(--accent-amber);line-height:1.65">${escHtml(at.notes)}</div>
     </div>` : '';
 
   document.getElementById('modal-agent-body').innerHTML = `
     <div class="modal-section">
       <div class="modal-kv">
-        <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(a.status)}</span>
-        <span class="modal-kv-key">시작</span><span class="modal-kv-val">${escHtml(a.startedAt || '—')}</span>
-        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${escHtml(a.duration || (a.status === 'running' ? '실행 중' : '—'))}</span>
+        <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(at.status)}</span>
+        <span class="modal-kv-key">시작</span><span class="modal-kv-val">${escHtml(at.startedAt || '—')}</span>
+        <span class="modal-kv-key">소요 시간</span><span class="modal-kv-val">${escHtml(at.duration || (at.status === 'running' ? '실행 중' : '—'))}</span>
       </div>
     </div>
     <div class="divider"></div>
     <div class="modal-section">
       <div class="modal-section-title">요약</div>
-      <div style="font-size:14px;color:var(--text-secondary);line-height:1.7">${escHtml(a.summary || '—')}</div>
+      <div class="modal-text">${renderSentences(at.summary)}</div>
     </div>
-    ${a.output ? `
+    ${at.output ? `
     <div class="modal-section">
       <div class="modal-section-title">대화 내역</div>
-      <div style="font-size:13px;line-height:1.7">${renderMarkdown(a.output)}</div>
+      <div class="modal-text">${renderOutputList(at.output)}</div>
     </div>` : ''}
     ${notesHtml}
+    ${at.reportFile ? `
+    <div class="divider"></div>
+    <div class="modal-section">
+      <div class="modal-section-title">전체 리포트</div>
+      <div class="modal-md" id="agent-report-body">불러오는 중…</div>
+    </div>` : ''}
   `;
-  openModal('modal-agent');
+
+  // 인디케이터(dots)
+  const dots = document.getElementById('modal-agent-dots');
+  if (dots) {
+    dots.hidden = !multi;
+    dots.innerHTML = multi ? modalAttempts.map((x, i) =>
+      `<button class="modal-dot ${i === idx ? 'active' : ''}" onclick="jumpAttempt(${i})" title="${x.attempt}회차"></button>`).join('') : '';
+  }
+  // 좌우 화살표
+  const prevB = document.getElementById('modal-agent-prev');
+  const nextB = document.getElementById('modal-agent-next');
+  if (prevB) { prevB.hidden = !multi; prevB.disabled = idx <= 0; }
+  if (nextB) { nextB.hidden = !multi; nextB.disabled = idx >= modalAttempts.length - 1; }
+
+  // 리포트 있을 때 모달 넓히고 마크다운 로드
+  const modalEl = document.querySelector('#modal-agent .modal');
+  if (modalEl) modalEl.classList.toggle('modal-wide', !!at.reportFile);
+  if (at.reportFile) {
+    fetch(at.reportFile + '?t=' + Date.now())
+      .then(r => r.ok ? r.text() : Promise.reject(new Error('not found')))
+      .then(md => { const el = document.getElementById('agent-report-body'); if (el) el.innerHTML = renderMarkdown(md); })
+      .catch(() => { const el = document.getElementById('agent-report-body'); if (el) el.innerHTML = '<span style="color:var(--text-muted)">리포트를 불러오지 못했습니다.</span>'; });
+  }
 }
+
+function navigateAttempt(delta) {
+  const next = modalAttemptIdx + delta;
+  if (next < 0 || next >= modalAttempts.length) return;
+  renderAgentAttempt(next);
+}
+function jumpAttempt(i) { renderAgentAttempt(i); }
 
 // ── Builder Modal ──────────────────────────────────────────────────────────────
 function renderBuilderModal(a) {
@@ -1095,7 +1378,7 @@ function renderBuilderModal(a) {
     </div>
     <div class="modal-section">
       <div class="modal-section-title">요약</div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${escHtml(a.summary || '—')}</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">${escHtml(a.summary || '—')}</div>
     </div>
   `;
 }
@@ -1119,7 +1402,7 @@ function openLogDetailModal(projectId, logIndex) {
     <div class="divider"></div>
     <div class="modal-section">
       <div class="modal-section-title">메시지</div>
-      <div style="font-size:12.5px;line-height:1.7;color:var(--text-primary)">${escHtml(log.msg || '')}</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text-primary)">${escHtmlLink(log.msg || '')}</div>
     </div>
     <div class="divider"></div>
     <div class="modal-section">
@@ -1128,7 +1411,7 @@ function openLogDetailModal(projectId, logIndex) {
         ${(p.logs || []).map((l, i) => `
           <div class="modal-log-item ${getLogClass(l.type)}" style="${i === logIndex ? 'background:var(--bg-elevated);padding-left:6px;border-radius:3px' : ''}">
             <span class="modal-log-ts">${escHtml(l.ts || '')}</span>
-            <span class="modal-log-text">[${getAgentLabel(l.agent)}] ${escHtml(l.msg || '')}</span>
+            <span class="modal-log-text">[${getAgentLabel(l.agent)}] ${escHtmlLink(l.msg || '')}</span>
           </div>`).join('')}
       </div>
     </div>
@@ -1136,68 +1419,6 @@ function openLogDetailModal(projectId, logIndex) {
   openModal('modal-log');
 }
 
-function renderLogModal() {
-  const p = activeWorkId ? PROJECTS.find(x => x.id === activeWorkId) : null;
-  if (!p) return;
-  document.getElementById('modal-log-body').innerHTML = `
-    <div class="modal-log-list">
-      ${(p.logs || []).map(l => `
-        <div class="modal-log-item ${getLogClass(l.type)}">
-          <span class="modal-log-ts">${escHtml(l.ts || '')}</span>
-          <span class="modal-log-text">[${getAgentLabel(l.agent)}] ${escHtml(l.msg || '')}</span>
-        </div>`).join('')}
-    </div>
-  `;
-}
-
-// ── Overview Modal ─────────────────────────────────────────────────────────────
-function renderOverviewModal() {
-  const p = activeWorkId ? PROJECTS.find(x => x.id === activeWorkId) : null;
-  if (!p) return;
-  const titleEl = document.getElementById('modal-overview-title');
-  if (titleEl) titleEl.textContent = p.name;
-  const doneCount     = (p.agents || []).filter(a => a.status === 'done').length;
-  const rollbackCount = (p.logs   || []).filter(l => l.type === 'rollback').length;
-  const errorCount    = (p.logs   || []).filter(l => l.type === 'error').length;
-
-  document.getElementById('modal-overview-body').innerHTML = `
-    <div class="overview-stat-grid">
-      <div class="overview-stat">
-        <div class="overview-stat-val text-green">${doneCount}/${(p.agents||[]).length}</div>
-        <div class="overview-stat-label">에이전트 완료</div>
-      </div>
-      <div class="overview-stat">
-        <div class="overview-stat-val text-amber">${rollbackCount}</div>
-        <div class="overview-stat-label">롤백 횟수</div>
-      </div>
-      <div class="overview-stat">
-        <div class="overview-stat-val ${errorCount > 0 ? 'text-red' : 'text-muted'}">${errorCount}</div>
-        <div class="overview-stat-label">오류 발생</div>
-      </div>
-    </div>
-    <div class="divider"></div>
-    <div class="modal-section">
-      <div class="modal-kv">
-        <span class="modal-kv-key">상태</span><span class="modal-kv-val">${getStatusBadge(p.status)}</span>
-        <span class="modal-kv-key">모드</span><span class="modal-kv-val">${escHtml(p.mode || '—')}</span>
-        <span class="modal-kv-key">시작</span><span class="modal-kv-val">${escHtml(p.startedAt || '—')}</span>
-        <span class="modal-kv-key">완료</span><span class="modal-kv-val">${escHtml(p.completedAt || '—')}</span>
-        <span class="modal-kv-key">총 소요</span><span class="modal-kv-val">${escHtml(p.duration || '진행 중')}</span>
-        <span class="modal-kv-key">롤백</span><span class="modal-kv-val">${p.rollback ? '<span class="badge badge-amber">있음</span>' : '없음'}</span>
-      </div>
-    </div>
-    <div class="divider"></div>
-    <div class="modal-section">
-      <div class="modal-section-title">참여 에이전트</div>
-      <div class="modal-kv">
-        ${(p.agents || []).map(a => `
-          <span class="modal-kv-key"><span class="badge ${getAgentBadge(a.id)}">${escHtml(a.name || a.id)}</span></span>
-          <span class="modal-kv-val">${escHtml(a.duration || (a.status === 'running' ? '실행 중...' : '—'))}</span>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
 
 // ── Splash ─────────────────────────────────────────────────────────────────────
 (function() {
@@ -1214,6 +1435,47 @@ function renderOverviewModal() {
   }, 2500);
 })();
 
+// ── Work Queue Resize ──────────────────────────────────────────────────────────
+(function() {
+  const MIN_W = 180, MAX_W = 540;
+  const handle = document.getElementById('wq-resize-handle');
+  const queue  = document.getElementById('work-queue');
+  if (!handle || !queue) return;
+
+  const saved = parseInt(localStorage.getItem('wqWidth'), 10);
+  if (saved >= MIN_W && saved <= MAX_W) queue.style.width = saved + 'px';
+
+  let dragging = false, startX = 0, startW = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = queue.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    if (e.buttons === 0) { cancel(); return; }
+    const w = Math.min(MAX_W, Math.max(MIN_W, startW + e.clientX - startX));
+    queue.style.width = w + 'px';
+  });
+
+  document.addEventListener('mouseup', () => { if (dragging) cancel(); });
+
+  function cancel() {
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
+    localStorage.setItem('wqWidth', queue.offsetWidth);
+  }
+})();
+
 // ── Init ───────────────────────────────────────────────────────────────────────
+applySidebarState();
 loadData();
 setInterval(loadData, 3000);

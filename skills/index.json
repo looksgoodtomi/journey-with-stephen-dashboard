@@ -1,0 +1,13 @@
+[
+  {
+    "id": "t2c-anamorphic-voxel",
+    "title": "아나모픽 3D 복셀 로고",
+    "summary": "텍스트와 로고 이미지 두 실루엣의 픽셀을 샘플링해 합성한, 정면/측면에서 다르게 읽히는 회전 가능한 3D 큐브 조형물",
+    "tags": ["Three.js", "WebGL", "Canvas2D", "인터랙션"],
+    "sourceLabel": "text2context.com",
+    "sourceUrl": "https://text2context.com/",
+    "thumb": "skills/thumbs/t2c-anamorphic-voxel.png",
+    "demoPath": "skills/demos/portfolio-voxel-demo.html",
+    "addedAt": "2026-09-03"
+  }
+]

@@ -1,1 +1,226 @@
-{}
+{
+  "id": "OT-001",
+  "project": "offtable",
+  "domain": "ui-ux",
+  "name": "offTABLE MVP 구성안 (v4)",
+  "brief": "after-work-dating-wiki 기반 신규 프로젝트 등록 + MVP 구성안 제시 → 사용자가 재직인증/안전/관리자 포함 v4 스코프 제공, 검토 후 와이어프레임 재구축",
+  "status": "in_progress",
+  "mode": "설계 모드",
+  "startedAt": "2026-08-06 11:03:46",
+  "completedAt": null,
+  "duration": null,
+  "rollback": false,
+  "agents": [
+    {
+      "id": "planner",
+      "name": "planner",
+      "status": "done",
+      "startedAt": "2026-08-06 11:03:46",
+      "duration": "~5m",
+      "executionDuration": null,
+      "summary": "v4 — 사용자가 재직인증·확장 필드·조율·평가·안전·관리자 포함 전체 스코프 직접 제공 → 구조적 공백 5개(정원잠금/거절흐름/개인취소/식당확정권한/평가공개범위) 검토 후 기본가정 반영, mvp.md v4로 갱신",
+      "output": "스코프 10개 항목 + 화면 20개(A계정~F관리자). 추천·예약·결제·크레딧·자동매칭 여전히 제외, 좋아요/싫어요 비공개 유지",
+      "notes": null,
+      "reportFile": "reports/OT-001-planner.md",
+      "history": [
+        {
+          "attempt": 1,
+          "status": "done",
+          "summary": "Phase 0/1 2단 구성(보증금·신뢰점수 포함) — 사용자 피드백으로 폐기",
+          "startedAt": "2026-08-06 11:03:46",
+          "duration": ""
+        },
+        {
+          "attempt": 2,
+          "status": "done",
+          "summary": "게시판형 4화면으로 재축소 — 킥오프 검토용 최소 프로덕트",
+          "startedAt": "2026-08-06 11:20:00",
+          "duration": ""
+        },
+        {
+          "attempt": 3,
+          "status": "done",
+          "summary": "인앱 채팅 추가(텍스트 전용) — 5화면 v3",
+          "startedAt": "2026-08-06 11:30:00",
+          "duration": ""
+        },
+        {
+          "attempt": 4,
+          "status": "done",
+          "summary": "v4 — 재직인증/조율/평가/안전/관리자 추가, 20화면으로 확장",
+          "startedAt": "2026-08-22 17:16:26",
+          "duration": ""
+        }
+      ]
+    },
+    {
+      "id": "validator-plan",
+      "name": "validator · plan",
+      "status": "done",
+      "startedAt": null,
+      "duration": null,
+      "executionDuration": null,
+      "summary": "생략 — 스코프가 이미 사용자와 직접 확정된 상태(v1→v2→v3 반복 조정 완료)",
+      "output": "",
+      "notes": null,
+      "reportFile": null,
+      "history": null
+    },
+    {
+      "id": "ux-improver",
+      "name": "ux-improver",
+      "status": "done",
+      "startedAt": null,
+      "duration": null,
+      "executionDuration": null,
+      "summary": "별도 개선 제안 없이 mvp.md v3 스코프 그대로 화면 반영",
+      "output": "",
+      "notes": null,
+      "reportFile": null,
+      "history": null
+    },
+    {
+      "id": "ui-designer",
+      "name": "ui-designer",
+      "status": "done",
+      "startedAt": "2026-08-22 17:20:13",
+      "duration": "~20m",
+      "executionDuration": null,
+      "summary": "Figma 미사용(exceptions.md) — v4 스코프 반영해 prototypes/offtable/ 20화면 저해상도 와이어프레임으로 전면 재구축(디자인 톤 제거, 흑백 기능 표기). 상단 index를 select 드롭다운 고정바(64px)로 마무리 — 가로스크롤 없음, 화면별 anchor id(s01~s20) 오류도 수정",
+      "output": "20화면(A계정 01-06·B재직인증 07-08·C만들기탐색 09-13·D조율완료 14-16·E내모임안전 17-18·F관리자 19-20). 각 화면에 버튼 상태분기·로직 Note 병기, 브라우저 렌더 검증 완료 · http://localhost:3000/prototypes/offtable/index.html",
+      "notes": null,
+      "reportFile": null,
+      "history": [
+        {
+          "attempt": 1,
+          "status": "done",
+          "summary": "v3 — 테라코타 톤 디자인, 5화면(dinnerFeed·Post·Detail·Chat·myDinners)",
+          "startedAt": "2026-08-06 11:40:00",
+          "duration": "~15m"
+        },
+        {
+          "attempt": 2,
+          "status": "done",
+          "summary": "v4 — 디자인 제거하고 흑백 와이어프레임으로 전면 재구축, 20화면으로 확장",
+          "startedAt": "2026-08-22 17:20:13",
+          "duration": ""
+        },
+        {
+          "attempt": 3,
+          "status": "done",
+          "summary": "s07 재직 인증 상단에 온보딩 어필 섹션 추가 — 개인정보/회사명 비노출 안내 + 장점 3가지(모임생성·참여/채팅/인증회원만 매칭) + [재직 인증 없이 가입하기]/[재직 인증하기] 세로 스택 버튼. 기존 방법선택 탭은 [재직 인증하기] 이후 단계로 재배치",
+          "startedAt": "2026-08-31 09:30:00",
+          "duration": "~10m"
+        },
+        {
+          "attempt": 4,
+          "status": "done",
+          "summary": "s07 verifyMethod → verifyIntro로 개명(독립 모듈화). 17 myDinners 상단에 계정 카드 추가(재직 인증 전/후 배지 분기 + 미인증 시 [재직 인증하기 →] → 07 진입, ②경로). mvp.md 회사 인증 항목에 진입지점 2곳 명시",
+          "startedAt": "2026-08-31 10:05:00",
+          "duration": "~10m"
+        },
+        {
+          "attempt": 5,
+          "status": "done",
+          "summary": "재직 서류 업로드(Tab B)에 사후 검토·허위 확인 시 정지 가능성 고지 문구 추가 — 사용자가 지적한 공백(즉시 인증됨만 보이고 이후 정지될 수 있다는 안내 부재) 반영. 회사 이메일 경로는 즉시 검증이라 해당 없음",
+          "startedAt": "2026-08-31 10:25:00",
+          "duration": "~5m"
+        }
+      ]
+    },
+    {
+      "id": "validator-ui",
+      "name": "validator · ui",
+      "status": "idle",
+      "startedAt": null,
+      "duration": null,
+      "executionDuration": null,
+      "summary": "",
+      "output": "",
+      "notes": null,
+      "reportFile": null,
+      "history": null
+    }
+  ],
+  "logs": [
+    {
+      "ts": "2026-08-06 11:03:46",
+      "agent": "director",
+      "type": "start",
+      "msg": "설계 모드 — offTABLE MVP 구성안(OT-001). after-work-dating-wiki 기반 신규 프로젝트 등록 + MVP 구성안 제시"
+    },
+    {
+      "ts": "2026-08-06 11:10:00",
+      "agent": "planner",
+      "type": "complete",
+      "msg": "MVP 구성안 완료 — Phase 0(무앱)/Phase 1(5화면) 제안. 사용자 검토 후 validator(plan) 진행 여부 결정."
+    },
+    {
+      "ts": "2026-08-06 11:20:00",
+      "agent": "planner",
+      "type": "complete",
+      "msg": "MVP v2 — 게시판형 4화면으로 축소(매칭·보증금·인증·채팅 제외). 킥오프 검토용."
+    },
+    {
+      "ts": "2026-08-06 11:30:00",
+      "agent": "planner",
+      "type": "complete",
+      "msg": "MVP v3 — dinnerChat(텍스트 전용 인앱 채팅) 추가, 5화면으로 확장"
+    },
+    {
+      "ts": "2026-08-06 11:55:00",
+      "agent": "ui-designer",
+      "type": "complete",
+      "msg": "prototypes/offtable/ 5화면 HTML 프로토타입 완료 (Figma 미사용, exceptions.md 등록)"
+    },
+    {
+      "ts": "2026-08-22 17:16:26",
+      "agent": "planner",
+      "type": "complete",
+      "msg": "사용자가 재직인증·안전·관리자 포함 v4 스코프 직접 제공 → 검토, 구조적 공백 5개 지적(정원잠금/거절흐름/개인취소/식당확정권한/평가공개범위) 후 기본가정으로 mvp.md v4 확정"
+    },
+    {
+      "ts": "2026-08-22 17:20:13",
+      "agent": "ui-designer",
+      "type": "complete",
+      "msg": "prototypes/offtable/ 20화면 와이어프레임(v4) 재구축 완료 — 디자인 제거, 흑백 기능표기 + Note 병기. README·mvp.md 동기화. 프로토타입: http://localhost:3000/prototypes/offtable/index.html"
+    },
+    {
+      "ts": "2026-08-22 17:32:10",
+      "agent": "ui-designer",
+      "type": "note",
+      "msg": "화면별 페이징 뷰어 추가 후 사용자 요청으로 롤백, 상단 index를 fixed 고정바(64px)로 변경"
+    },
+    {
+      "ts": "2026-08-22 17:40:00",
+      "agent": "ui-designer",
+      "type": "complete",
+      "msg": "고정바 안 링크 나열이 가로스크롤을 유발 → select 드롭다운(섹션별 optgroup)으로 교체해 해결. 화면별 anchor id가 섹션 6개에만 걸려있던 버그 발견·수정(s01~s20 각 화면에 고유 id 부여)"
+    },
+    {
+      "ts": "2026-08-31 09:30:00",
+      "agent": "ui-designer",
+      "type": "complete",
+      "msg": "s07 재직 인증 화면에 온보딩 어필 섹션 추가 — 안전/비노출 안내 + 장점 3가지 + 인증 여부 선택 버튼 2개(세로 스택). 브라우저 렌더 검증 완료"
+    },
+    {
+      "ts": "2026-08-31 10:05:00",
+      "agent": "ui-designer",
+      "type": "complete",
+      "msg": "재직 인증을 독립 모듈(verifyIntro)로 재정의 — 미인증 회원이 17 myDinners에서 언제든 재진입 가능하도록 계정 상태 카드 추가. mvp.md·wireframe·session.json 동기화, 브라우저 렌더 검증 완료"
+    },
+    {
+      "ts": "2026-08-31 10:15:00",
+      "agent": "director",
+      "type": "note",
+      "msg": "프로토타입 링크가 새창으로 안 열리는 문제 리포트 → 원인: http(대시보드, localhost:3000)에서 file:// 링크(Documents 내부)로의 이동은 브라우저 보안정책상 차단됨(target=_blank 코드 문제 아님). offtable-html을 ~/dashboard/prototypes/offtable로 미러링해 같은 서버(http://localhost:3000)로 서빙, 링크를 http로 교체해 해결(system-change)"
+    },
+    {
+      "ts": "2026-08-31 10:25:00",
+      "agent": "ui-designer",
+      "type": "complete",
+      "msg": "재직 서류 업로드 화면에 사후 검토·정지 가능성 고지 문구 추가. ~/dashboard/prototypes/offtable 재미러링 완료"
+    }
+  ],
+  "built_nodes": {}
+}

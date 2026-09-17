@@ -15,8 +15,13 @@
   <aside id="sidebar">
     <div class="sidebar-logo">
       <img src="assets/keyvisual.png" alt="" class="sidebar-keyvisual" onclick="openModal('modal-image')">
+      <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="사이드바 접기">‹</button>
     </div>
     <nav id="sidebar-projects"></nav>
+    <div id="sidebar-skills-btn" class="sidebar-skills-btn" onclick="openSkillLibrary()" title="스킬 도서관">
+      <span class="sidebar-skills-icon">📚</span>
+      <span class="sidebar-skills-label">스킬 도서관</span>
+    </div>
   </aside>
 
   <!-- Main area -->
@@ -28,15 +33,15 @@
       </div>
       <div class="topbar-center" id="topbar-stats"></div>
       <div class="topbar-right">
-        <button class="topbar-btn" onclick="openDrawer('inbox')">요청함</button>
-        <button class="topbar-btn" onclick="openDrawer('log')">전체 로그</button>
-        <button class="topbar-btn" onclick="openDrawer('system')">변경 이력</button>
+        <button class="topbar-btn" onclick="openDrawer('timeline')" title="광역 타임라인 — 모든 프로젝트·작업의 전체 대화를 시간순으로">광역 타임라인</button>
         <div class="topbar-divider"></div>
         <button class="topbar-btn icon-btn" onclick="openDsSyncModal()" title="무적풍화륜">
           <img src="assets/dssync.png" style="width:16px;height:16px;image-rendering:pixelated">
+          <span class="topbar-sync-time" id="dssync-last-at">—</span>
         </button>
         <button class="topbar-btn icon-btn" onclick="openScreenSyncModal()" title="이혼대법">
           <img src="assets/screensync.png" style="width:16px;height:16px;image-rendering:pixelated">
+          <span class="topbar-sync-time" id="screensync-last-at">—</span>
         </button>
       </div>
     </div>
@@ -46,11 +51,13 @@
       <!-- Left: Work Queue -->
       <div id="work-queue">
         <div class="panel-header">
-          <span class="panel-title">작업</span>
+          <span class="panel-title" id="work-queue-title">작업</span>
           <span class="panel-count" id="work-queue-count"></span>
         </div>
         <div id="work-list"></div>
       </div>
+
+      <div id="wq-resize-handle"></div>
 
       <!-- Right: Work Detail -->
       <div id="work-detail">
@@ -80,13 +87,16 @@
 
 <!-- Modal: Agent Detail -->
 <div class="modal-backdrop" id="modal-agent">
+  <button class="modal-nav modal-nav-prev" id="modal-agent-prev" onclick="navigateAttempt(-1)" title="이전 회차" hidden>‹</button>
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modal-agent-title">—</div>
       <button class="modal-close" onclick="closeModal('modal-agent')">✕</button>
     </div>
     <div class="modal-body" id="modal-agent-body"></div>
+    <div class="modal-attempt-dots" id="modal-agent-dots" hidden></div>
   </div>
+  <button class="modal-nav modal-nav-next" id="modal-agent-next" onclick="navigateAttempt(1)" title="다음 회차" hidden>›</button>
 </div>
 
 <!-- Modal: Log Detail -->
@@ -111,16 +121,6 @@
   </div>
 </div>
 
-<!-- Modal: Project Overview -->
-<div class="modal-backdrop" id="modal-overview">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-overview-title">퀘스트 개요</div>
-      <button class="modal-close" onclick="closeModal('modal-overview')">✕</button>
-    </div>
-    <div class="modal-body" id="modal-overview-body"></div>
-  </div>
-</div>
 
 <!-- Modal: Director Notes -->
 <div class="modal-backdrop" id="modal-director">
@@ -128,7 +128,7 @@
     <div class="modal-header">
       <div class="modal-title">
         <img src="assets/director.png" alt="director" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
-        <span id="modal-director-title">Director Notes</span>
+        <span id="modal-director-title">director</span>
       </div>
       <button class="modal-close" onclick="closeModal('modal-director')">✕</button>
     </div>
@@ -140,9 +140,12 @@
 <div class="modal-backdrop" id="modal-dssync">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">
-        <img src="assets/dssync.png" alt="ds-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
-        무적풍화륜 실행 내역
+      <div class="modal-title-group">
+        <div class="modal-title">
+          <img src="assets/dssync.png" alt="ds-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
+          무적풍화륜 실행 내역
+        </div>
+        <div class="modal-desc">Figma 디자인 시스템(변수·컴포넌트)을 수집해 project/docs에 동기화합니다.</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-dssync')">✕</button>
     </div>
@@ -154,9 +157,12 @@
 <div class="modal-backdrop" id="modal-screensync">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">
-        <img src="assets/screensync.png" alt="screen-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
-        이혼대법 실행 내역
+      <div class="modal-title-group">
+        <div class="modal-title">
+          <img src="assets/screensync.png" alt="screen-sync" style="width:20px;height:20px;image-rendering:pixelated;flex-shrink:0;">
+          이혼대법 실행 내역
+        </div>
+        <div class="modal-desc">Figma screen 페이지를 스캔해 디자이너 작업 스타일·판단 기준을 project/docs에 누적합니다.</div>
       </div>
       <button class="modal-close" onclick="closeModal('modal-screensync')">✕</button>
     </div>
@@ -164,16 +170,6 @@
   </div>
 </div>
 
-<!-- Modal: System Change -->
-<div class="modal-backdrop" id="modal-syschange">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">⚙ 시스템 변경 내역</div>
-      <button class="modal-close" onclick="closeModal('modal-syschange')">✕</button>
-    </div>
-    <div class="modal-body" id="modal-syschange-body"></div>
-  </div>
-</div>
 
 <!-- Modal: Image -->
 <div class="modal-backdrop" id="modal-image" onclick="closeModal('modal-image')">
